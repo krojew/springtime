@@ -1,0 +1,9 @@
+[workspace]
+members = ["springtime-di"]
+
+[workspace.package]
+authors = ["Kamil Rojewski <kamil.rojewski@gmail.com>"]
+edition = "2021"
+repository = "https://github.com/krojew/springtime"
+readme = "./README.md"
+license = "MIT"
