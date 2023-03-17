@@ -1,5 +1,5 @@
 [workspace]
-members = ["springtime-di"]
+members = ["springtime-di", "springtime-di-derive"]
 
 [workspace.package]
 authors = ["Kamil Rojewski <kamil.rojewski@gmail.com>"]

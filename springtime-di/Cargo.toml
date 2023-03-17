@@ -11,4 +11,11 @@ readme.workspace = true
 license.workspace = true
 keywords = ["di", "dependency-injection", "ioc", "injection", "spring"]
 
+[features]
+threadsafe = []
+derive = ["springtime-di-derive"]
+default = ["threadsafe", "derive"]
+
 [dependencies]
+springtime-di-derive = { path = "../springtime-di-derive", version = "0.1", optional = true }
+thiserror = "1.0.39"

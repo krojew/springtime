@@ -1,0 +1,20 @@
+[package]
+name = "springtime-di-derive"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+description = "Derive support for springtime-di crate."
+documentation = "https://docs.rs/springtime-di"
+repository.workspace = true
+readme.workspace = true
+license.workspace = true
+keywords = ["di", "dependency-injection", "ioc", "injection", "spring", "derive"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+itertools = "0.10.5"
+proc-macro2 = "1.0.52"
+syn = { version = "1.0.109", features = ["full"] }
+quote = "1.0.26"
