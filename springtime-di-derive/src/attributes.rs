@@ -31,3 +31,28 @@ impl TryFrom<&Attribute> for FieldAttributes {
         Ok(Self { default })
     }
 }
+
+pub struct ComponentAttributes {
+    pub name: Option<LitStr>,
+    pub is_primary: bool,
+}
+
+impl TryFrom<&Attribute> for ComponentAttributes {
+    type Error = Error;
+
+    fn try_from(value: &Attribute) -> Result<Self, Self::Error> {
+        let mut name = None;
+        let mut is_primary = false;
+        value.parse_nested_meta(|meta| {
+            if meta.path.is_ident("name") {
+                name = Some(meta.value().and_then(|value| value.parse())?);
+            } else if meta.path.is_ident("primary") {
+                is_primary = true;
+            }
+
+            Ok(())
+        })?;
+
+        Ok(Self { name, is_primary })
+    }
+}
