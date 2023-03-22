@@ -54,7 +54,7 @@ fn should_directly_create_with_explicit_dependency() {
 
 #[test]
 fn should_register_components() {
-    let registry = StaticComponentDefinitionRegistry::new().unwrap();
+    let registry = StaticComponentDefinitionRegistry::new(false).unwrap();
     assert!(registry.components_by_type::<TestDependency>().is_some());
     assert!(registry.components_by_type::<TestComponent2>().is_some());
 }

@@ -19,8 +19,8 @@ pub struct ComponentDefinition {
 /// A registry of component definitions which can be used when requesting instances via a
 /// [ComponentInstanceProvider](crate::component::ComponentInstanceProvider).
 pub trait ComponentDefinitionRegistry {
-    /// Adds a new definition for a given type. Note: component names must be unique for a given
-    /// type.
+    /// Adds a new definition for a given type. Note: handling of duplicate component names is
+    /// registry-dependent.
     fn register_component<T: Component + 'static>(
         &mut self,
         definition: ComponentDefinition,
@@ -28,34 +28,61 @@ pub trait ComponentDefinitionRegistry {
 
     /// Returns all registered definitions for a given type.
     fn components_by_type<T: Component + 'static>(&self) -> Option<Vec<ComponentDefinition>>;
+
+    /// Returns a definition for a given type, with given name.
+    fn component_by_name<T: Component + 'static>(&self, name: &str) -> Option<ComponentDefinition>;
 }
 
 /// Registry of component definitions initialized from statically registered definitions.
 pub struct StaticComponentDefinitionRegistry {
     definitions: FxHashMap<TypeId, Vec<ComponentDefinition>>,
+    allow_definition_overriding: bool,
 }
 
 impl StaticComponentDefinitionRegistry {
-    pub fn new() -> Result<Self, ComponentDefinitionRegistryError> {
+    pub fn new(
+        allow_definition_overriding: bool,
+    ) -> Result<Self, ComponentDefinitionRegistryError> {
         let mut definitions = FxHashMap::default();
         for registerer in inventory::iter::<ComponentDefinitionRegisterer> {
             let definition = (registerer.register)();
             let registry: &mut Vec<ComponentDefinition> =
                 definitions.entry(definition.target).or_default();
 
-            if registry
-                .iter()
-                .any(|entry| entry.name == definition.definition.name)
-            {
+            Self::try_register_component(
+                registry,
+                definition.definition,
+                allow_definition_overriding,
+            )?;
+        }
+
+        Ok(Self {
+            definitions,
+            allow_definition_overriding,
+        })
+    }
+
+    fn try_register_component(
+        registry: &mut Vec<ComponentDefinition>,
+        definition: ComponentDefinition,
+        allow_definition_overriding: bool,
+    ) -> Result<(), ComponentDefinitionRegistryError> {
+        if let Some(entry) = registry
+            .iter_mut()
+            .find(|entry| entry.name == definition.name)
+        {
+            if !allow_definition_overriding {
                 return Err(ComponentDefinitionRegistryError::DuplicateName(
-                    definition.definition.name,
+                    definition.name,
                 ));
             }
 
-            registry.push(definition.definition.clone());
+            *entry = definition;
+        } else {
+            registry.push(definition);
         }
 
-        Ok(Self { definitions })
+        Ok(())
     }
 }
 
@@ -65,18 +92,18 @@ impl ComponentDefinitionRegistry for StaticComponentDefinitionRegistry {
         definition: ComponentDefinition,
     ) -> Result<(), ComponentDefinitionRegistryError> {
         let registry = self.definitions.entry(TypeId::of::<T>()).or_default();
-        if registry.iter().any(|entry| entry.name == definition.name) {
-            return Err(ComponentDefinitionRegistryError::DuplicateName(
-                definition.name,
-            ));
-        }
-
-        registry.push(definition);
-        Ok(())
+        Self::try_register_component(registry, definition, self.allow_definition_overriding)
     }
 
     fn components_by_type<T: Component + 'static>(&self) -> Option<Vec<ComponentDefinition>> {
         self.definitions.get(&TypeId::of::<T>()).cloned()
+    }
+
+    fn component_by_name<T: Component + 'static>(&self, name: &str) -> Option<ComponentDefinition> {
+        self.definitions
+            .get(&TypeId::of::<T>())
+            .and_then(|definitions| definitions.iter().find(|entry| entry.name == name))
+            .cloned()
     }
 }
 
@@ -122,7 +149,7 @@ mod tests {
 
     #[test]
     fn should_register_definition() {
-        let mut registry = StaticComponentDefinitionRegistry::new().unwrap();
+        let mut registry = StaticComponentDefinitionRegistry::new(false).unwrap();
         registry
             .register_component::<TestComponent>(ComponentDefinition {
                 name: "name".to_string(),
@@ -143,7 +170,7 @@ mod tests {
             is_primary: false,
         };
 
-        let mut registry = StaticComponentDefinitionRegistry::new().unwrap();
+        let mut registry = StaticComponentDefinitionRegistry::new(false).unwrap();
         registry
             .register_component::<TestComponent>(definition.clone())
             .unwrap();
@@ -153,6 +180,34 @@ mod tests {
                 .register_component::<TestComponent>(definition.clone())
                 .unwrap_err(),
             ComponentDefinitionRegistryError::DuplicateName(definition.name)
+        );
+    }
+
+    #[test]
+    fn should_override_duplicate_name() {
+        let definition1 = ComponentDefinition {
+            name: "name".to_string(),
+            is_primary: false,
+        };
+
+        let definition2 = ComponentDefinition {
+            name: "name".to_string(),
+            is_primary: true,
+        };
+
+        let mut registry = StaticComponentDefinitionRegistry::new(true).unwrap();
+        registry
+            .register_component::<TestComponent>(definition1.clone())
+            .unwrap();
+        registry
+            .register_component::<TestComponent>(definition2)
+            .unwrap();
+
+        assert!(
+            registry
+                .component_by_name::<TestComponent>(&definition1.name)
+                .unwrap()
+                .is_primary
         );
     }
 }
