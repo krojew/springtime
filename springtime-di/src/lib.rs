@@ -3,4 +3,4 @@ pub mod component_registry;
 pub mod error;
 
 #[cfg(feature = "derive")]
-pub use springtime_di_derive::Component;
+pub use springtime_di_derive::*;

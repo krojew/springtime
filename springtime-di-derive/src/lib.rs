@@ -1,6 +1,8 @@
-use crate::component::expand_component;
+use crate::attributes::ComponentAliasAttributes;
+use crate::component::{expand_component, register_component_alias};
 use proc_macro::TokenStream;
-use syn::{parse_macro_input, DeriveInput, Error};
+use quote::quote;
+use syn::{parse_macro_input, DeriveInput, Error, Item};
 
 mod attributes;
 mod component;
@@ -11,4 +13,18 @@ pub fn generate_component(input: TokenStream) -> TokenStream {
     expand_component(&input)
         .unwrap_or_else(Error::into_compile_error)
         .into()
+}
+
+#[proc_macro_attribute]
+pub fn component_alias(args: TokenStream, input: TokenStream) -> TokenStream {
+    let args = parse_macro_input!(args as ComponentAliasAttributes);
+    let item = parse_macro_input!(input as Item);
+    let registration =
+        register_component_alias(&item, &args).unwrap_or_else(Error::into_compile_error);
+
+    (quote! {
+        #item
+        #registration
+    })
+    .into()
 }

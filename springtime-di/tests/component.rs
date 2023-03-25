@@ -1,10 +1,17 @@
-use springtime_di::component::{Component, ComponentInstanceProvider, ComponentInstancePtr};
+use springtime_di::component::{
+    Component, ComponentDowncast, ComponentInstanceAnyPtr, ComponentInstanceProvider,
+    ComponentInstancePtr,
+};
 use springtime_di::component_registry::{
     ComponentDefinitionRegistry, StaticComponentDefinitionRegistry,
 };
 use springtime_di::error::ComponentInstanceProviderError;
-use springtime_di::Component;
+use springtime_di::{component_alias, Component};
 use std::any::TypeId;
+
+trait TestTrait1 {}
+
+trait TestTrait2 {}
 
 #[derive(Component)]
 struct TestDependency;
@@ -19,11 +26,17 @@ struct TestComponent1 {
 }
 
 #[derive(Component)]
-#[component(name = "dep2", primary)]
+#[component(names = ["dep2"])]
 struct TestComponent2(
     ComponentInstancePtr<TestDependency>,
     #[component(default = "dummy_expr")] i8,
 );
+
+#[component_alias]
+impl TestTrait1 for TestComponent2 {}
+
+#[component_alias(primary)]
+impl TestTrait2 for TestComponent2 {}
 
 fn dummy_expr() -> i8 {
     -1
@@ -32,11 +45,16 @@ fn dummy_expr() -> i8 {
 struct TestDependencyInstanceProvider;
 
 impl ComponentInstanceProvider for TestDependencyInstanceProvider {
-    fn primary_instance<T: Component + 'static>(
+    fn primary_instance<T: ComponentDowncast + ?Sized + 'static>(
         &self,
     ) -> Result<ComponentInstancePtr<T>, ComponentInstanceProviderError> {
         if TypeId::of::<T>() == TypeId::of::<TestDependency>() {
-            return T::create(self).map(ComponentInstancePtr::new);
+            return T::downcast(
+                ComponentInstancePtr::new(TestDependency) as ComponentInstanceAnyPtr
+            )
+            .map_err(|_| {
+                ComponentInstanceProviderError::NoPrimaryInstance("TestDependency".into())
+            });
         }
 
         Err(ComponentInstanceProviderError::NoPrimaryInstance(
@@ -57,4 +75,6 @@ fn should_register_components() {
     let registry = StaticComponentDefinitionRegistry::new(false).unwrap();
     assert!(registry.components_by_type::<TestDependency>().is_some());
     assert!(registry.components_by_type::<TestComponent2>().is_some());
+    assert!(registry.components_by_type::<dyn TestTrait1>().is_some());
+    assert!(registry.components_by_type::<dyn TestTrait2>().is_some());
 }

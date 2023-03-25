@@ -1,4 +1,5 @@
-use syn::{Attribute, Error, ExprPath, LitStr, Token};
+use syn::parse::{Parse, ParseStream};
+use syn::{Attribute, Error, Expr, ExprArray, ExprPath, LitStr, Token};
 
 pub enum DefaultDefinition {
     Default,
@@ -33,26 +34,54 @@ impl TryFrom<&Attribute> for FieldAttributes {
 }
 
 pub struct ComponentAttributes {
-    pub name: Option<LitStr>,
-    pub is_primary: bool,
+    pub names: Option<ExprArray>,
 }
 
 impl TryFrom<&Attribute> for ComponentAttributes {
     type Error = Error;
 
     fn try_from(value: &Attribute) -> Result<Self, Self::Error> {
-        let mut name = None;
-        let mut is_primary = false;
+        let mut names = None;
         value.parse_nested_meta(|meta| {
-            if meta.path.is_ident("name") {
-                name = Some(meta.value().and_then(|value| value.parse())?);
-            } else if meta.path.is_ident("primary") {
-                is_primary = true;
+            if meta.path.is_ident("names") {
+                if let Expr::Array(array) = meta.value()?.parse::<Expr>()? {
+                    names = Some(array);
+                }
             }
 
             Ok(())
         })?;
 
-        Ok(Self { name, is_primary })
+        Ok(Self { names })
     }
+}
+
+#[derive(Default)]
+pub struct ComponentAliasAttributes {
+    pub is_primary: bool,
+}
+
+impl Parse for ComponentAliasAttributes {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut result = Self::default();
+        while !input.is_empty() {
+            let lookahead = input.lookahead1();
+            if lookahead.peek(kw::primary) {
+                result.is_primary = true;
+                let _ = input.parse::<proc_macro2::TokenTree>();
+            } else if lookahead.peek(Token![,]) {
+                let _ = input.parse::<Token![,]>()?;
+            } else {
+                return Err(lookahead.error());
+            }
+        }
+
+        Ok(result)
+    }
+}
+
+mod kw {
+    use syn::custom_keyword;
+
+    custom_keyword!(primary);
 }

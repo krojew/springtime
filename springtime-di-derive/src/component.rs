@@ -1,12 +1,15 @@
-use crate::attributes::{ComponentAttributes, DefaultDefinition, FieldAttributes};
+use crate::attributes::{
+    ComponentAliasAttributes, ComponentAttributes, DefaultDefinition, FieldAttributes,
+};
 use convert_case::{Case, Casing};
 use itertools::Itertools;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
+use std::ops::Deref;
 use syn::spanned::Spanned;
 use syn::{
-    Attribute, Data, DataStruct, DeriveInput, Error, Field, Fields, FieldsNamed, FieldsUnnamed,
-    LitStr, Result, Type,
+    Attribute, Data, DataStruct, DeriveInput, Error, Expr, ExprArray, ExprLit, Field, Fields,
+    FieldsNamed, FieldsUnnamed, Item, Lit, Result, Type,
 };
 
 const COMPONENT: &str = "component";
@@ -85,11 +88,26 @@ fn extract_component_attributes(attributes: &[Attribute]) -> Result<Option<Compo
         .transpose()
 }
 
-fn generate_name(attribute_name: &Option<LitStr>, ident: &Ident) -> String {
-    attribute_name
-        .as_ref()
-        .map(|name| name.value())
-        .unwrap_or_else(|| ident.to_string().to_case(Case::Snake))
+fn generate_names(attribute_names: Option<ExprArray>, ident: &Ident) -> Vec<String> {
+    attribute_names
+        .map(|names| {
+            names
+                .elems
+                .iter()
+                .filter_map(|elem| {
+                    if let Expr::Lit(ExprLit {
+                        lit: Lit::Str(string),
+                        ..
+                    }) = elem
+                    {
+                        Some(string.value())
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_else(|| vec![ident.to_string().to_case(Case::Snake)])
 }
 
 pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
@@ -100,18 +118,29 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
             Fields::Unnamed(fields) => make_unnamed_struct(fields)?,
             Fields::Unit => quote! { Self },
         };
-        let (name, is_primary) = {
-            if let Some(ComponentAttributes { name, is_primary }) =
-                extract_component_attributes(&input.attrs)?
+        let names = {
+            if let Some(ComponentAttributes { names }) = extract_component_attributes(&input.attrs)?
             {
-                (name, is_primary)
+                names
             } else {
-                (None, false)
+                None
             }
         };
-        let name = generate_name(&name, &input.ident);
+        let names = generate_names(names, &input.ident);
 
         Ok(quote! {
+            #[automatically_derived]
+            impl springtime_di::component::Injectable for #ident {}
+
+            #[automatically_derived]
+            impl springtime_di::component::ComponentDowncast for #ident {
+                fn downcast(
+                    source: springtime_di::component::ComponentInstanceAnyPtr,
+                ) -> Result<springtime_di::component::ComponentInstancePtr<Self>, springtime_di::component::ComponentInstanceAnyPtr> {
+                    source.downcast()
+                }
+            }
+
             #[automatically_derived]
             impl springtime_di::component::Component for #ident {
                 fn create<CIP: springtime_di::component::ComponentInstanceProvider>(instance_provider: &CIP) -> Result<Self, springtime_di::error::ComponentInstanceProviderError> {
@@ -125,9 +154,8 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
                     use std::any::TypeId;
                     springtime_di::component_registry::internal::TypedComponentDefinition {
                         target: TypeId::of::<#ident>(),
-                        definition: springtime_di::component_registry::ComponentDefinition {
-                            name: #name.to_string(),
-                            is_primary: #is_primary
+                        metadata: springtime_di::component_registry::ComponentMetadata {
+                            names: vec![#(#names.to_string()),*],
                         }
                     }
                 }
@@ -143,6 +171,68 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
         Err(Error::new(
             input.span(),
             "Can only derive Component on structs!",
+        ))
+    }
+}
+
+pub fn register_component_alias(
+    item: &Item,
+    args: &ComponentAliasAttributes,
+) -> Result<TokenStream> {
+    if let Item::Impl(item_impl) = item {
+        let trait_type = item_impl
+            .trait_
+            .as_ref()
+            .map(|(_, path, ..)| path)
+            .ok_or_else(|| Error::new(item.span(), "Missing trait identifier!"))?;
+
+        let target_type = if let Type::Path(path) = item_impl.self_ty.deref() {
+            &path.path
+        } else {
+            return Err(Error::new(
+                item.span(),
+                "Registering traits is only available for Components!",
+            ));
+        };
+
+        let is_primary = args.is_primary;
+
+        Ok(quote! {
+            #[automatically_derived]
+            impl springtime_di::component::Injectable for dyn #trait_type {}
+
+            #[automatically_derived]
+            impl springtime_di::component::ComponentDowncast for dyn #trait_type {
+                fn downcast(
+                    source: springtime_di::component::ComponentInstanceAnyPtr,
+                ) -> Result<springtime_di::component::ComponentInstancePtr<Self>, springtime_di::component::ComponentInstanceAnyPtr> {
+                    source.downcast::<#target_type>().map(|p| p as springtime_di::component::ComponentInstancePtr<Self>)
+                }
+            }
+
+            const _: () = {
+                fn register() -> springtime_di::component_registry::internal::TraitComponentDefinition {
+                    use std::any::TypeId;
+                    springtime_di::component_registry::internal::TraitComponentDefinition {
+                        trait_type: TypeId::of::<dyn #trait_type>(),
+                        target_type: TypeId::of::<#target_type>(),
+                        metadata: springtime_di::component_registry::ComponentAliasMetadata {
+                            is_primary: #is_primary
+                        }
+                    }
+                }
+
+                springtime_di::component_registry::internal::submit! {
+                    springtime_di::component_registry::internal::TraitComponentRegisterer {
+                        register
+                    }
+                };
+            };
+        })
+    } else {
+        Err(Error::new(
+            item.span(),
+            "Registering traits for components is possible only on trait implementations!",
         ))
     }
 }
