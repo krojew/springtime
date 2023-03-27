@@ -1,6 +1,9 @@
 use crate::component::ComponentDowncast;
 use crate::error::ComponentInstanceProviderError;
 use std::any::{Any, TypeId};
+#[cfg(not(feature = "threadsafe"))]
+use std::rc::Rc;
+#[cfg(feature = "threadsafe")]
 use std::sync::Arc;
 
 #[cfg(not(feature = "threadsafe"))]
