@@ -34,7 +34,7 @@ pub trait TypedComponentInstanceProvider {
     ) -> Result<ComponentInstancePtr<T>, ComponentInstanceProviderError>;
 
     /// Tries to get an instance like [TypedComponentInstanceProvider::primary_instance_typed] does,
-    /// but returns None on missing instance.
+    /// but returns `None` on missing instance.
     fn primary_instance_option<T: ComponentDowncast + ?Sized + 'static>(
         &self,
     ) -> Result<Option<ComponentInstancePtr<T>>, ComponentInstanceProviderError>;
