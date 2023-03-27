@@ -15,9 +15,58 @@ use syn::{
 
 const COMPONENT_ATTR: &str = "component";
 
+fn ungroup(mut ty: &Type) -> &Type {
+    while let Type::Group(group) = ty {
+        ty = &group.elem;
+    }
+
+    ty
+}
+
+fn get_injected_option_type(ty: &Type) -> Option<TokenStream> {
+    let path = match ungroup(ty) {
+        Type::Path(ty) => &ty.path,
+        _ => {
+            return None;
+        }
+    };
+
+    let seg = match path.segments.last() {
+        Some(seg) => seg,
+        None => {
+            return None;
+        }
+    };
+
+    let args = match &seg.arguments {
+        PathArguments::AngleBracketed(bracketed) => &bracketed.args,
+        _ => {
+            return None;
+        }
+    };
+
+    if seg.ident != "Option" || args.len() != 1 {
+        return None;
+    }
+
+    if let GenericArgument::Type(Type::Path(TypePath { path, .. })) = &args[0] {
+        if let Some(last_segment) = path.segments.last() {
+            if last_segment.ident == "ComponentInstancePtr" {
+                if let PathArguments::AngleBracketed(args) = &last_segment.arguments {
+                    if let Some(GenericArgument::Type(Type::Path(path))) = args.args.first() {
+                        return Some(quote!(#path));
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
 fn get_injected_type(ty: &Type) -> TokenStream {
     // let's try to extract "dyn Trait" from the inner type
-    if let Type::Path(TypePath { path, .. }) = ty {
+    if let Type::Path(TypePath { path, .. }) = ungroup(ty) {
         if let Some(last_segment) = path.segments.last() {
             if last_segment.ident == "ComponentInstancePtr" {
                 if let PathArguments::AngleBracketed(args) = &last_segment.arguments {
@@ -38,9 +87,12 @@ fn get_injected_type(ty: &Type) -> TokenStream {
 }
 
 fn get_single_instance(ty: &Type) -> TokenStream {
-    let ty = get_injected_type(ty);
+    let (getter, ty) = get_injected_option_type(ty)
+        .map(|ty| (quote!(primary_instance_option), ty))
+        .unwrap_or_else(|| (quote!(primary_instance_typed), get_injected_type(ty)));
+
     quote! {
-        instance_provider.primary_instance_typed::<#ty>()?
+        instance_provider.#getter::<#ty>()?
     }
 }
 

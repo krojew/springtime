@@ -29,6 +29,7 @@ mod component_test {
         _dependency_2: ComponentInstancePtr<dyn TestTrait3 + Sync + Send>,
         #[cfg(not(feature = "threadsafe"))]
         _dependency_2: ComponentInstancePtr<dyn TestTrait3>,
+        _optional_dependency: Option<ComponentInstancePtr<TestDependency>>,
         #[component(default)]
         _default: i8,
         #[component(default = "dummy_expr")]

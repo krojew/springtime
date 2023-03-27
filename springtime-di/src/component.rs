@@ -27,9 +27,16 @@ pub trait ComponentInstanceProvider {
 
 /// Helper trait for [ComponentInstanceProvider] providing strongly-typed access.
 pub trait TypedComponentInstanceProvider {
+    /// Typesafe version of [ComponentInstanceProvider::primary_instance].
     fn primary_instance_typed<T: ComponentDowncast + ?Sized + 'static>(
         &self,
     ) -> Result<ComponentInstancePtr<T>, ComponentInstanceProviderError>;
+
+    /// Tries to get an instance like [TypedComponentInstanceProvider::primary_instance_typed] does,
+    /// but returns None on missing instance.
+    fn primary_instance_option<T: ComponentDowncast + ?Sized + 'static>(
+        &self,
+    ) -> Result<Option<ComponentInstancePtr<T>>, ComponentInstanceProviderError>;
 }
 
 impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for CIP {
@@ -40,6 +47,15 @@ impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for
         self.primary_instance(type_id).and_then(|p| {
             T::downcast(p).map_err(|_| ComponentInstanceProviderError::NoPrimaryInstance(type_id))
         })
+    }
+
+    fn primary_instance_option<T: ComponentDowncast + ?Sized + 'static>(
+        &self,
+    ) -> Result<Option<ComponentInstancePtr<T>>, ComponentInstanceProviderError> {
+        match self.primary_instance_typed::<T>() {
+            Ok(ptr) => Ok(Some(ptr)),
+            Err(ComponentInstanceProviderError::NoPrimaryInstance(_)) => Ok(None),
+        }
     }
 }
 
@@ -71,8 +87,10 @@ impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for
 /// struct TestComponent {
 ///     // concrete type dependency
 ///     _dependency_1: ComponentInstancePtr<TestDependency>,
-///     // dyn Trait dependency - note Send + Sync when using the "threadsafe" feature
+///     // primary dyn Trait dependency - note Send + Sync when using the "threadsafe" feature
 ///     _dependency_2: ComponentInstancePtr<dyn TestTrait + Send + Sync>,
+///     // optional dependency - don't fail, when not present
+///     _optional_dependency: Option<ComponentInstancePtr<TestDependency>>,
 ///     #[component(default)]
 ///     _default: i8,
 ///     #[component(default = "dummy_expr")]
