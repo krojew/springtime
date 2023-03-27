@@ -12,7 +12,7 @@ license.workspace = true
 keywords = ["di", "dependency-injection", "ioc", "injection", "spring"]
 
 [features]
-threadsafe = []
+threadsafe = ["springtime-di-derive/threadsafe"]
 derive = ["springtime-di-derive"]
 default = ["threadsafe", "derive"]
 

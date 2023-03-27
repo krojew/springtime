@@ -56,15 +56,23 @@ impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for
 ///
 /// ```
 /// use springtime_di::component::{ComponentInstancePtr, Component};
-/// use springtime_di::Component;
+/// use springtime_di::{Component, component_alias};
+///
+/// trait TestTrait {}
 ///
 /// #[derive(Component)]
 /// struct TestDependency;
 ///
+/// #[component_alias]
+/// impl TestTrait for TestDependency {}
+///
 /// #[derive(Component)]
 /// #[component(names = ["dep2"])]
 /// struct TestComponent {
-///     _dependency: ComponentInstancePtr<TestDependency>,
+///     // concrete type dependency
+///     _dependency_1: ComponentInstancePtr<TestDependency>,
+///     // dyn Trait dependency - note Send + Sync when using the "threadsafe" feature
+///     _dependency_2: ComponentInstancePtr<dyn TestTrait + Send + Sync>,
 ///     #[component(default)]
 ///     _default: i8,
 ///     #[component(default = "dummy_expr")]

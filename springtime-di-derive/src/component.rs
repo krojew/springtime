@@ -9,20 +9,44 @@ use std::ops::Deref;
 use syn::spanned::Spanned;
 use syn::{
     Attribute, Data, DataStruct, DeriveInput, Error, Expr, ExprArray, ExprLit, Field, Fields,
-    FieldsNamed, FieldsUnnamed, Item, Lit, Result, Type,
+    FieldsNamed, FieldsUnnamed, GenericArgument, Item, Lit, PathArguments, Result, Type, TypePath,
+    TypeTraitObject,
 };
 
-const COMPONENT: &str = "component";
+const COMPONENT_ATTR: &str = "component";
+
+fn get_injected_type(ty: &Type) -> TokenStream {
+    // let's try to extract "dyn Trait" from the inner type
+    if let Type::Path(TypePath { path, .. }) = ty {
+        if let Some(last_segment) = path.segments.last() {
+            if last_segment.ident == "ComponentInstancePtr" {
+                if let PathArguments::AngleBracketed(args) = &last_segment.arguments {
+                    if let Some(GenericArgument::Type(Type::TraitObject(TypeTraitObject {
+                        dyn_token,
+                        bounds,
+                    }))) = args.args.first()
+                    {
+                        // and we're done
+                        return quote!(#dyn_token #bounds);
+                    }
+                }
+            }
+        }
+    }
+
+    quote!(<#ty as Deref>::Target)
+}
 
 fn get_single_instance(ty: &Type) -> TokenStream {
+    let ty = get_injected_type(ty);
     quote! {
-        instance_provider.primary_instance_typed::<<#ty as Deref>::Target>()?
+        instance_provider.primary_instance_typed::<#ty>()?
     }
 }
 
 fn generate_construction(field: &Field) -> Result<TokenStream> {
     for attr in &field.attrs {
-        if attr.path().is_ident(COMPONENT) {
+        if attr.path().is_ident(COMPONENT_ATTR) {
             let attributes = FieldAttributes::try_from(attr)?;
             match &attributes.default {
                 Some(DefaultDefinition::Expr(path)) => return Ok(quote!(#path())),
@@ -78,7 +102,7 @@ fn extract_component_attributes(attributes: &[Attribute]) -> Result<Option<Compo
     attributes
         .iter()
         .filter_map(|attribute| {
-            if attribute.path().is_ident(COMPONENT) {
+            if attribute.path().is_ident(COMPONENT_ATTR) {
                 Some(ComponentAttributes::try_from(attribute))
             } else {
                 None
@@ -204,12 +228,17 @@ pub fn register_component_alias(
 
         let is_primary = args.is_primary;
 
+        #[cfg(feature = "threadsafe")]
+        let trait_bounds = quote!( + Sync + Send);
+        #[cfg(not(feature = "threadsafe"))]
+        let trait_bounds = quote!();
+
         Ok(quote! {
             #[automatically_derived]
-            impl springtime_di::component::Injectable for dyn #trait_type {}
+            impl springtime_di::component::Injectable for dyn #trait_type #trait_bounds {}
 
             #[automatically_derived]
-            impl springtime_di::component::ComponentDowncast for dyn #trait_type {
+            impl springtime_di::component::ComponentDowncast for dyn #trait_type #trait_bounds {
                 fn downcast(
                     source: springtime_di::component::ComponentInstanceAnyPtr,
                 ) -> Result<springtime_di::component::ComponentInstancePtr<Self>, springtime_di::component::ComponentInstanceAnyPtr> {
@@ -221,7 +250,7 @@ pub fn register_component_alias(
                 fn register() -> springtime_di::component_registry::internal::TraitComponentDefinition {
                     use std::any::TypeId;
                     springtime_di::component_registry::internal::TraitComponentDefinition {
-                        trait_type: TypeId::of::<dyn #trait_type>(),
+                        trait_type: TypeId::of::<dyn #trait_type #trait_bounds>(),
                         target_type: TypeId::of::<#target_type>(),
                         metadata: springtime_di::component_registry::ComponentAliasMetadata {
                             is_primary: #is_primary
