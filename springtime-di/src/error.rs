@@ -6,6 +6,8 @@ use thiserror::Error;
 pub enum ComponentInstanceProviderError {
     #[error("Cannot find a primary instance for component '{0:?}' - either none or multiple exists without a primary marker.")]
     NoPrimaryInstance(TypeId),
+    #[error("Tried to downcast component to incompatible type: {0:?}")]
+    IncompatibleComponent(TypeId),
 }
 
 /// Error related to component registries.

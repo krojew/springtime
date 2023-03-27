@@ -1,5 +1,6 @@
 use crate::component::ComponentDowncast;
 use crate::error::ComponentInstanceProviderError;
+use itertools::Itertools;
 use std::any::{Any, TypeId};
 #[cfg(not(feature = "threadsafe"))]
 use std::rc::Rc;
@@ -24,6 +25,13 @@ pub trait ComponentInstanceProvider {
         &self,
         type_id: TypeId,
     ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError>;
+
+    /// Tries to instantiate and return all registered components for given type, stopping on first
+    /// error.
+    fn instances(
+        &self,
+        type_id: TypeId,
+    ) -> Result<Vec<ComponentInstanceAnyPtr>, ComponentInstanceProviderError>;
 }
 
 /// Helper trait for [ComponentInstanceProvider] providing strongly-typed access.
@@ -38,4 +46,46 @@ pub trait TypedComponentInstanceProvider {
     fn primary_instance_option<T: ComponentDowncast + ?Sized + 'static>(
         &self,
     ) -> Result<Option<ComponentInstancePtr<T>>, ComponentInstanceProviderError>;
+
+    /// Typesafe version of [ComponentInstanceProvider::instances].
+    fn instances_typed<T: ComponentDowncast + ?Sized + 'static>(
+        &self,
+    ) -> Result<Vec<ComponentInstancePtr<T>>, ComponentInstanceProviderError>;
+}
+
+impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for CIP {
+    fn primary_instance_typed<T: ComponentDowncast + ?Sized + 'static>(
+        &self,
+    ) -> Result<ComponentInstancePtr<T>, ComponentInstanceProviderError> {
+        let type_id = TypeId::of::<T>();
+        self.primary_instance(type_id).and_then(|p| {
+            T::downcast(p)
+                .map_err(|_| ComponentInstanceProviderError::IncompatibleComponent(type_id))
+        })
+    }
+
+    fn primary_instance_option<T: ComponentDowncast + ?Sized + 'static>(
+        &self,
+    ) -> Result<Option<ComponentInstancePtr<T>>, ComponentInstanceProviderError> {
+        match self.primary_instance_typed::<T>() {
+            Ok(ptr) => Ok(Some(ptr)),
+            Err(ComponentInstanceProviderError::NoPrimaryInstance(_)) => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
+    fn instances_typed<T: ComponentDowncast + ?Sized + 'static>(
+        &self,
+    ) -> Result<Vec<ComponentInstancePtr<T>>, ComponentInstanceProviderError> {
+        let type_id = TypeId::of::<T>();
+        self.instances(type_id).and_then(|instances| {
+            instances
+                .into_iter()
+                .map(|p| {
+                    T::downcast(p)
+                        .map_err(|_| ComponentInstanceProviderError::IncompatibleComponent(type_id))
+                })
+                .try_collect()
+        })
+    }
 }

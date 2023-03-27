@@ -34,6 +34,8 @@
 //!     dependency: ComponentInstancePtr<dyn TestTrait + Send + Sync>,
 //! }
 //! ```
+//!
+//! *Note:* `Send + Sync` are only required when the `threadsafe` feature is enabled.
 
 pub mod component;
 pub mod component_registry;

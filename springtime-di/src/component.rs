@@ -29,6 +29,8 @@
 //!     dependency_2: ComponentInstancePtr<dyn TestTrait + Send + Sync>,
 //!     // optional dependency - don't fail, when not present
 //!     optional_dependency: Option<ComponentInstancePtr<TestDependency>>,
+//!     // all registered dependencies of given type
+//!     all_deps: Vec<ComponentInstancePtr<dyn TestTrait + Sync + Send>>,
 //!     #[component(default)]
 //!     default: i8,
 //!     #[component(default = "dummy_expr")]
@@ -85,29 +87,7 @@
 use crate::error::ComponentInstanceProviderError;
 use crate::instance_provider::{
     ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
-    TypedComponentInstanceProvider,
 };
-use std::any::TypeId;
-
-impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for CIP {
-    fn primary_instance_typed<T: ComponentDowncast + ?Sized + 'static>(
-        &self,
-    ) -> Result<ComponentInstancePtr<T>, ComponentInstanceProviderError> {
-        let type_id = TypeId::of::<T>();
-        self.primary_instance(type_id).and_then(|p| {
-            T::downcast(p).map_err(|_| ComponentInstanceProviderError::NoPrimaryInstance(type_id))
-        })
-    }
-
-    fn primary_instance_option<T: ComponentDowncast + ?Sized + 'static>(
-        &self,
-    ) -> Result<Option<ComponentInstancePtr<T>>, ComponentInstanceProviderError> {
-        match self.primary_instance_typed::<T>() {
-            Ok(ptr) => Ok(Some(ptr)),
-            Err(ComponentInstanceProviderError::NoPrimaryInstance(_)) => Ok(None),
-        }
-    }
-}
 
 /// Base trait for components for dependency injection.
 ///

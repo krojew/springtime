@@ -35,6 +35,7 @@ mod component_test {
         _default: i8,
         #[component(default = "dummy_expr")]
         _default_expr: i8,
+        _all_deps: Vec<ComponentInstancePtr<dyn TestTrait3 + Sync + Send>>,
     }
 
     #[derive(Component)]
@@ -72,6 +73,13 @@ mod component_test {
             }
 
             Err(ComponentInstanceProviderError::NoPrimaryInstance(type_id))
+        }
+
+        fn instances(
+            &self,
+            type_id: TypeId,
+        ) -> Result<Vec<ComponentInstanceAnyPtr>, ComponentInstanceProviderError> {
+            self.primary_instance(type_id).map(|p| vec![p])
         }
     }
 

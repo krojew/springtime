@@ -20,5 +20,6 @@ default = ["threadsafe", "derive"]
 derivative = "2.2.0"
 fxhash = "0.2.1"
 inventory = "0.3.4"
+itertools = "0.10.5"
 springtime-di-derive = { path = "../springtime-di-derive", version = "0.1", optional = true }
 thiserror = "1.0.39"

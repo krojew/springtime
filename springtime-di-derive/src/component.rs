@@ -23,7 +23,7 @@ fn ungroup(mut ty: &Type) -> &Type {
     ty
 }
 
-fn get_injected_option_type(ty: &Type) -> Option<TokenStream> {
+fn get_wrapped_type(ty: &Type, expected_wrapper: &str) -> Option<TokenStream> {
     let path = match ungroup(ty) {
         Type::Path(ty) => &ty.path,
         _ => {
@@ -45,7 +45,7 @@ fn get_injected_option_type(ty: &Type) -> Option<TokenStream> {
         }
     };
 
-    if seg.ident != "Option" || args.len() != 1 {
+    if seg.ident != expected_wrapper || args.len() != 1 {
         return None;
     }
 
@@ -53,8 +53,8 @@ fn get_injected_option_type(ty: &Type) -> Option<TokenStream> {
         if let Some(last_segment) = path.segments.last() {
             if last_segment.ident == "ComponentInstancePtr" {
                 if let PathArguments::AngleBracketed(args) = &last_segment.arguments {
-                    if let Some(GenericArgument::Type(Type::Path(path))) = args.args.first() {
-                        return Some(quote!(#path));
+                    if let Some(GenericArgument::Type(ty)) = args.args.first() {
+                        return Some(quote!(#ty));
                     }
                 }
             }
@@ -62,6 +62,10 @@ fn get_injected_option_type(ty: &Type) -> Option<TokenStream> {
     }
 
     None
+}
+
+fn get_injected_option_type(ty: &Type) -> Option<TokenStream> {
+    get_wrapped_type(ty, "Option")
 }
 
 fn get_injected_type(ty: &Type) -> TokenStream {
@@ -86,9 +90,14 @@ fn get_injected_type(ty: &Type) -> TokenStream {
     quote!(<#ty as Deref>::Target)
 }
 
+fn get_injected_vec_type(ty: &Type) -> Option<TokenStream> {
+    get_wrapped_type(ty, "Vec")
+}
+
 fn get_single_instance(ty: &Type) -> TokenStream {
     let (getter, ty) = get_injected_option_type(ty)
         .map(|ty| (quote!(primary_instance_option), ty))
+        .or_else(|| get_injected_vec_type(ty).map(|ty| (quote!(instances_typed), ty)))
         .unwrap_or_else(|| (quote!(primary_instance_typed), get_injected_type(ty)));
 
     quote! {
