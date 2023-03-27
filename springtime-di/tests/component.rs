@@ -1,6 +1,5 @@
 use springtime_di::component::{
-    Component, ComponentDowncast, ComponentInstanceAnyPtr, ComponentInstanceProvider,
-    ComponentInstancePtr,
+    Component, ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
 };
 use springtime_di::component_registry::{
     ComponentDefinitionRegistry, StaticComponentDefinitionRegistry,
@@ -45,21 +44,16 @@ fn dummy_expr() -> i8 {
 struct TestDependencyInstanceProvider;
 
 impl ComponentInstanceProvider for TestDependencyInstanceProvider {
-    fn primary_instance<T: ComponentDowncast + ?Sized + 'static>(
+    fn primary_instance(
         &self,
-    ) -> Result<ComponentInstancePtr<T>, ComponentInstanceProviderError> {
-        if TypeId::of::<T>() == TypeId::of::<TestDependency>() {
-            return T::downcast(
-                ComponentInstancePtr::new(TestDependency) as ComponentInstanceAnyPtr
-            )
-            .map_err(|_| {
-                ComponentInstanceProviderError::NoPrimaryInstance("TestDependency".into())
-            });
+        type_id: TypeId,
+    ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
+        if type_id == TypeId::of::<TestDependency>() {
+            return TestDependency::create(self)
+                .map(|p| ComponentInstancePtr::new(p) as ComponentInstanceAnyPtr);
         }
 
-        Err(ComponentInstanceProviderError::NoPrimaryInstance(
-            "TestDependency".into(),
-        ))
+        Err(ComponentInstanceProviderError::NoPrimaryInstance(type_id))
     }
 }
 

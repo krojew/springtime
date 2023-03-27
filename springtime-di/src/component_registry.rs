@@ -1,13 +1,17 @@
-use crate::component::{Component, ComponentDowncast, Injectable};
+use crate::component::{
+    Component, ComponentDowncast, ComponentInstanceAnyPtr, ComponentInstanceProvider, Injectable,
+};
 use crate::component_registry::internal::{
     ComponentDefinitionRegisterer, TraitComponentRegisterer,
 };
 use crate::component_registry::registry::NamedComponentDefinitionMap;
-use crate::error::ComponentDefinitionRegistryError;
+use crate::error::{ComponentDefinitionRegistryError, ComponentInstanceProviderError};
+use derivative::Derivative;
 use std::any::TypeId;
 
 /// Definition for a [Component] registered in a definition registry.
-#[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Debug, Default)]
+#[derive(Derivative, Clone)]
+#[derivative(Debug)]
 pub struct ComponentDefinition {
     /// Each component has at least one name, which can be used to request a specific instance.
     /// Derive-based components have their name generated from type name by converting it to snake
@@ -16,13 +20,23 @@ pub struct ComponentDefinition {
     /// With multiple components registered for a given type, one of them can be marked as primary
     /// and returned when requesting a single instance.
     pub is_primary: bool,
+    /// Constructor method for type-erased instances.
+    #[derivative(Debug = "ignore")]
+    pub constructor: fn(
+        instance_provider: &dyn ComponentInstanceProvider,
+    ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError>,
 }
 
 /// Registration information for a [Component]. Please see [ComponentDefinition] for information
 /// about the meaning of the fields.
-#[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Debug, Default)]
+#[derive(Derivative, Clone)]
+#[derivative(Debug)]
 pub struct ComponentMetadata {
     pub names: Vec<String>,
+    #[derivative(Debug = "ignore")]
+    pub constructor: fn(
+        instance_provider: &dyn ComponentInstanceProvider,
+    ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError>,
 }
 
 /// Registration information for an  alias for a [Component] registered in a definition registry.
@@ -33,7 +47,7 @@ pub struct ComponentAliasMetadata {
 }
 
 /// A registry of component definitions which can be used when requesting instances via a
-/// [ComponentInstanceProvider](crate::component::ComponentInstanceProvider).
+/// [ComponentInstanceProvider](ComponentInstanceProvider).
 pub trait ComponentDefinitionRegistry {
     /// Adds a new definition for a given type. Note: handling of duplicate component names is
     /// registry-dependent.
@@ -231,6 +245,7 @@ mod registry {
             let definition = ComponentDefinition {
                 names: metadata.names,
                 is_primary: false,
+                constructor: metadata.constructor,
             };
 
             let names = definition.names.clone();
@@ -266,15 +281,25 @@ mod registry {
 
     #[cfg(test)]
     mod tests {
+        use crate::component::{
+            ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
+        };
         use crate::component_registry::registry::NamedComponentDefinitionMap;
         use crate::component_registry::{ComponentAliasMetadata, ComponentMetadata};
-        use crate::error::ComponentDefinitionRegistryError;
+        use crate::error::{ComponentDefinitionRegistryError, ComponentInstanceProviderError};
         use std::any::TypeId;
 
         fn create_metadata() -> (ComponentMetadata, TypeId) {
+            fn constructor(
+                _instance_provider: &dyn ComponentInstanceProvider,
+            ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
+                Ok(ComponentInstancePtr::new(0) as ComponentInstanceAnyPtr)
+            }
+
             (
                 ComponentMetadata {
                     names: vec!["name".to_string()],
+                    constructor,
                 },
                 TypeId::of::<i8>(),
             )
@@ -375,9 +400,8 @@ mod registry {
 pub mod internal {
     use crate::component_registry::{ComponentAliasMetadata, ComponentMetadata};
     use inventory::collect;
-    use std::any::TypeId;
-
     pub use inventory::submit;
+    use std::any::TypeId;
 
     pub struct TypedComponentDefinition {
         pub target: TypeId,
@@ -427,8 +451,8 @@ mod tests {
     }
 
     impl Component for TestComponent {
-        fn create<CIP: ComponentInstanceProvider>(
-            _instance_provider: &CIP,
+        fn create(
+            _instance_provider: &dyn ComponentInstanceProvider,
         ) -> Result<Self, ComponentInstanceProviderError>
         where
             Self: Sized,
@@ -437,12 +461,20 @@ mod tests {
         }
     }
 
+    fn test_constructor(
+        instance_provider: &dyn ComponentInstanceProvider,
+    ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
+        TestComponent::create(instance_provider)
+            .map(|p| ComponentInstancePtr::new(p) as ComponentInstanceAnyPtr)
+    }
+
     #[test]
     fn should_register_definition() {
         let mut registry = StaticComponentDefinitionRegistry::new(false).unwrap();
         registry
             .register_component::<TestComponent>(ComponentMetadata {
                 names: vec!["a".to_string()],
+                constructor: test_constructor,
             })
             .unwrap();
 
@@ -457,12 +489,14 @@ mod tests {
         let definition = ComponentDefinition {
             names: vec!["name".to_string()],
             is_primary: false,
+            constructor: test_constructor,
         };
 
         let mut registry = StaticComponentDefinitionRegistry::new(false).unwrap();
         registry
             .register_component::<TestComponent>(ComponentMetadata {
                 names: definition.names.clone(),
+                constructor: test_constructor,
             })
             .unwrap();
 
@@ -470,6 +504,7 @@ mod tests {
             registry
                 .register_component::<TestComponent>(ComponentMetadata {
                     names: definition.names.clone(),
+                    constructor: test_constructor,
                 })
                 .unwrap_err(),
             ComponentDefinitionRegistryError::DuplicateComponentName(definition.names[0].clone())
@@ -482,11 +517,13 @@ mod tests {
         registry
             .register_component::<TestComponent>(ComponentMetadata {
                 names: vec!["name".to_string()],
+                constructor: test_constructor,
             })
             .unwrap();
         registry
             .register_component::<TestComponent>(ComponentMetadata {
                 names: vec!["name2".to_string()],
+                constructor: test_constructor,
             })
             .unwrap();
 

@@ -1,5 +1,5 @@
 use crate::error::ComponentInstanceProviderError;
-use std::any::Any;
+use std::any::{Any, TypeId};
 #[cfg(not(feature = "threadsafe"))]
 use std::rc::Rc;
 #[cfg(feature = "threadsafe")]
@@ -10,12 +10,37 @@ pub type ComponentInstancePtr<T> = Rc<T>;
 #[cfg(feature = "threadsafe")]
 pub type ComponentInstancePtr<T> = Arc<T>;
 
+#[cfg(not(feature = "threadsafe"))]
+pub type ComponentInstanceAnyPtr = ComponentInstancePtr<dyn Any + 'static>;
+#[cfg(feature = "threadsafe")]
+pub type ComponentInstanceAnyPtr = ComponentInstancePtr<dyn Any + Send + Sync + 'static>;
+
+/// Generic provider for component instances.
 pub trait ComponentInstanceProvider {
     /// Tries to return a primary instance of a given component. A primary component is either the
     /// only one registered or one marked as primary.
-    fn primary_instance<T: ComponentDowncast + ?Sized + 'static>(
+    fn primary_instance(
+        &self,
+        type_id: TypeId,
+    ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError>;
+}
+
+/// Helper trait for [ComponentInstanceProvider] providing strongly-typed access.
+pub trait TypedComponentInstanceProvider {
+    fn primary_instance_typed<T: ComponentDowncast + ?Sized + 'static>(
         &self,
     ) -> Result<ComponentInstancePtr<T>, ComponentInstanceProviderError>;
+}
+
+impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for CIP {
+    fn primary_instance_typed<T: ComponentDowncast + ?Sized + 'static>(
+        &self,
+    ) -> Result<ComponentInstancePtr<T>, ComponentInstanceProviderError> {
+        let type_id = TypeId::of::<T>();
+        self.primary_instance(type_id).and_then(|p| {
+            T::downcast(p).map_err(|_| ComponentInstanceProviderError::NoPrimaryInstance(type_id))
+        })
+    }
 }
 
 /// Base trait for components for dependency injection.
@@ -94,17 +119,12 @@ pub trait ComponentInstanceProvider {
 /// components are available
 pub trait Component: ComponentDowncast {
     /// Creates an instance of this component using dependencies from given [ComponentInstanceProvider].
-    fn create<CIP: ComponentInstanceProvider>(
-        instance_provider: &CIP,
+    fn create(
+        instance_provider: &dyn ComponentInstanceProvider,
     ) -> Result<Self, ComponentInstanceProviderError>
     where
         Self: Sized;
 }
-
-#[cfg(not(feature = "threadsafe"))]
-pub type ComponentInstanceAnyPtr = ComponentInstancePtr<dyn Any + 'static>;
-#[cfg(feature = "threadsafe")]
-pub type ComponentInstanceAnyPtr = ComponentInstancePtr<dyn Any + Send + Sync + 'static>;
 
 /// Helper trait for traits implemented by components, thus allowing injection of components based
 /// on `dyn Trait` types. Typically automatically derived when using the `#[component_alias]`

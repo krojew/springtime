@@ -16,7 +16,7 @@ const COMPONENT: &str = "component";
 
 fn get_single_instance(ty: &Type) -> TokenStream {
     quote! {
-        instance_provider.primary_instance::<<#ty as Deref>::Target>()?
+        instance_provider.primary_instance_typed::<<#ty as Deref>::Target>()?
     }
 }
 
@@ -143,26 +143,33 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
 
             #[automatically_derived]
             impl springtime_di::component::Component for #ident {
-                fn create<CIP: springtime_di::component::ComponentInstanceProvider>(instance_provider: &CIP) -> Result<Self, springtime_di::error::ComponentInstanceProviderError> {
+                fn create(instance_provider: &dyn springtime_di::component::ComponentInstanceProvider) -> Result<Self, springtime_di::error::ComponentInstanceProviderError> {
+                    use springtime_di::component::TypedComponentInstanceProvider;
                     use std::ops::Deref;
                     Ok(#generation)
                 }
             }
 
             const _: () = {
+                fn constructor(instance_provider: &dyn springtime_di::component::ComponentInstanceProvider) -> Result<springtime_di::component::ComponentInstanceAnyPtr, springtime_di::error::ComponentInstanceProviderError> {
+                    use springtime_di::component::Component;
+                    #ident::create(instance_provider).map(|p| springtime_di::component::ComponentInstancePtr::new(p) as springtime_di::component::ComponentInstanceAnyPtr)
+                }
+
                 fn register() -> springtime_di::component_registry::internal::TypedComponentDefinition {
                     use std::any::TypeId;
                     springtime_di::component_registry::internal::TypedComponentDefinition {
                         target: TypeId::of::<#ident>(),
                         metadata: springtime_di::component_registry::ComponentMetadata {
                             names: vec![#(#names.to_string()),*],
-                        }
+                            constructor,
+                        },
                     }
                 }
 
                 springtime_di::component_registry::internal::submit! {
                     springtime_di::component_registry::internal::ComponentDefinitionRegisterer {
-                        register
+                        register,
                     }
                 };
             };
