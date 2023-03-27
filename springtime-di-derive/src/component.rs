@@ -211,25 +211,25 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
             #[automatically_derived]
             impl springtime_di::component::ComponentDowncast for #ident {
                 fn downcast(
-                    source: springtime_di::component::ComponentInstanceAnyPtr,
-                ) -> Result<springtime_di::component::ComponentInstancePtr<Self>, springtime_di::component::ComponentInstanceAnyPtr> {
+                    source: springtime_di::instance_provider::ComponentInstanceAnyPtr,
+                ) -> Result<springtime_di::instance_provider::ComponentInstancePtr<Self>, springtime_di::instance_provider::ComponentInstanceAnyPtr> {
                     source.downcast()
                 }
             }
 
             #[automatically_derived]
             impl springtime_di::component::Component for #ident {
-                fn create(instance_provider: &dyn springtime_di::component::ComponentInstanceProvider) -> Result<Self, springtime_di::error::ComponentInstanceProviderError> {
-                    use springtime_di::component::TypedComponentInstanceProvider;
+                fn create(instance_provider: &dyn springtime_di::instance_provider::ComponentInstanceProvider) -> Result<Self, springtime_di::error::ComponentInstanceProviderError> {
+                    use springtime_di::instance_provider::TypedComponentInstanceProvider;
                     use std::ops::Deref;
                     Ok(#generation)
                 }
             }
 
             const _: () = {
-                fn constructor(instance_provider: &dyn springtime_di::component::ComponentInstanceProvider) -> Result<springtime_di::component::ComponentInstanceAnyPtr, springtime_di::error::ComponentInstanceProviderError> {
+                fn constructor(instance_provider: &dyn springtime_di::instance_provider::ComponentInstanceProvider) -> Result<springtime_di::instance_provider::ComponentInstanceAnyPtr, springtime_di::error::ComponentInstanceProviderError> {
                     use springtime_di::component::Component;
-                    #ident::create(instance_provider).map(|p| springtime_di::component::ComponentInstancePtr::new(p) as springtime_di::component::ComponentInstanceAnyPtr)
+                    #ident::create(instance_provider).map(|p| springtime_di::instance_provider::ComponentInstancePtr::new(p) as springtime_di::instance_provider::ComponentInstanceAnyPtr)
                 }
 
                 fn register() -> springtime_di::component_registry::internal::TypedComponentDefinition {
@@ -292,9 +292,9 @@ pub fn register_component_alias(
             #[automatically_derived]
             impl springtime_di::component::ComponentDowncast for dyn #trait_type #trait_bounds {
                 fn downcast(
-                    source: springtime_di::component::ComponentInstanceAnyPtr,
-                ) -> Result<springtime_di::component::ComponentInstancePtr<Self>, springtime_di::component::ComponentInstanceAnyPtr> {
-                    source.downcast::<#target_type>().map(|p| p as springtime_di::component::ComponentInstancePtr<Self>)
+                    source: springtime_di::instance_provider::ComponentInstanceAnyPtr,
+                ) -> Result<springtime_di::instance_provider::ComponentInstancePtr<Self>, springtime_di::instance_provider::ComponentInstanceAnyPtr> {
+                    source.downcast::<#target_type>().map(|p| p as springtime_di::instance_provider::ComponentInstancePtr<Self>)
                 }
             }
 

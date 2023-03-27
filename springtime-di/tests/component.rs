@@ -1,12 +1,13 @@
 #[cfg(feature = "derive")]
 mod component_test {
-    use springtime_di::component::{
-        Component, ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
-    };
+    use springtime_di::component::Component;
     use springtime_di::component_registry::{
         ComponentDefinitionRegistry, StaticComponentDefinitionRegistry,
     };
     use springtime_di::error::ComponentInstanceProviderError;
+    use springtime_di::instance_provider::{
+        ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
+    };
     use springtime_di::{component_alias, Component};
     use std::any::TypeId;
 

@@ -1,11 +1,10 @@
-use crate::component::{
-    Component, ComponentDowncast, ComponentInstanceAnyPtr, ComponentInstanceProvider, Injectable,
-};
+use crate::component::{Component, ComponentDowncast, Injectable};
 use crate::component_registry::internal::{
     ComponentDefinitionRegisterer, TraitComponentRegisterer,
 };
 use crate::component_registry::registry::NamedComponentDefinitionMap;
 use crate::error::{ComponentDefinitionRegistryError, ComponentInstanceProviderError};
+use crate::instance_provider::{ComponentInstanceAnyPtr, ComponentInstanceProvider};
 use derivative::Derivative;
 use std::any::TypeId;
 
@@ -281,12 +280,12 @@ mod registry {
 
     #[cfg(test)]
     mod tests {
-        use crate::component::{
-            ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
-        };
         use crate::component_registry::registry::NamedComponentDefinitionMap;
         use crate::component_registry::{ComponentAliasMetadata, ComponentMetadata};
         use crate::error::{ComponentDefinitionRegistryError, ComponentInstanceProviderError};
+        use crate::instance_provider::{
+            ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
+        };
         use std::any::TypeId;
 
         fn create_metadata() -> (ComponentMetadata, TypeId) {
@@ -428,15 +427,15 @@ pub mod internal {
 
 #[cfg(test)]
 mod tests {
-    use crate::component::{
-        Component, ComponentDowncast, ComponentInstanceAnyPtr, ComponentInstanceProvider,
-        ComponentInstancePtr, Injectable,
-    };
+    use crate::component::{Component, ComponentDowncast, Injectable};
     use crate::component_registry::{
         ComponentDefinition, ComponentDefinitionRegistry, ComponentMetadata,
         StaticComponentDefinitionRegistry,
     };
     use crate::error::{ComponentDefinitionRegistryError, ComponentInstanceProviderError};
+    use crate::instance_provider::{
+        ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
+    };
 
     struct TestComponent;
 
