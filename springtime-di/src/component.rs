@@ -106,7 +106,7 @@ pub trait Component: ComponentDowncast {
 /// Helper trait for traits implemented by components, thus allowing injection of components based
 /// on `dyn Trait` types. Typically automatically derived when using the `#[component_alias]`
 /// attribute.
-pub trait ComponentDowncast: Injectable {
+pub trait ComponentDowncast {
     fn downcast(
         source: ComponentInstanceAnyPtr,
     ) -> Result<ComponentInstancePtr<Self>, ComponentInstanceAnyPtr>;
@@ -114,3 +114,5 @@ pub trait ComponentDowncast: Injectable {
 
 /// Marker trait for injectable types - components and aliases.
 pub trait Injectable {}
+
+impl<T: ComponentDowncast + ?Sized> Injectable for T {}

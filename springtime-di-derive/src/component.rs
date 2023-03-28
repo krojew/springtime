@@ -215,9 +215,6 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
 
         Ok(quote! {
             #[automatically_derived]
-            impl springtime_di::component::Injectable for #ident {}
-
-            #[automatically_derived]
             impl springtime_di::component::ComponentDowncast for #ident {
                 fn downcast(
                     source: springtime_di::instance_provider::ComponentInstanceAnyPtr,
@@ -295,9 +292,6 @@ pub fn register_component_alias(
         let trait_bounds = quote!();
 
         Ok(quote! {
-            #[automatically_derived]
-            impl springtime_di::component::Injectable for dyn #trait_type #trait_bounds {}
-
             #[automatically_derived]
             impl springtime_di::component::ComponentDowncast for dyn #trait_type #trait_bounds {
                 fn downcast(

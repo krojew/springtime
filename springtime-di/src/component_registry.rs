@@ -427,7 +427,7 @@ pub mod internal {
 
 #[cfg(test)]
 mod tests {
-    use crate::component::{Component, ComponentDowncast, Injectable};
+    use crate::component::{Component, ComponentDowncast};
     use crate::component_registry::{
         ComponentDefinition, ComponentDefinitionRegistry, ComponentMetadata,
         StaticComponentDefinitionRegistry,
@@ -438,8 +438,6 @@ mod tests {
     };
 
     struct TestComponent;
-
-    impl Injectable for TestComponent {}
 
     impl ComponentDowncast for TestComponent {
         fn downcast(
