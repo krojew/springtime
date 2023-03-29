@@ -16,15 +16,15 @@ pub enum ComponentDefinitionRegistryError {
     #[error("Attempted to register a duplicated component with name: {0}")]
     DuplicateComponentName(String),
     #[error("Attempted to re-register a concrete component type: {0:?}")]
-    DuplicateComponentType(TypeId),
+    DuplicateComponentType(String),
     #[error("Missing base component of type {target_type:?} for alias: {alias_type:?}")]
     MissingBaseComponent {
-        alias_type: TypeId,
-        target_type: TypeId,
+        alias_type: String,
+        target_type: String,
     },
     #[error("Registering a duplicate primary component of type {target_type:?} for alias: {alias_type:?}")]
     DuplicatePrimaryComponent {
-        alias_type: TypeId,
-        target_type: TypeId,
+        alias_type: String,
+        target_type: String,
     },
 }

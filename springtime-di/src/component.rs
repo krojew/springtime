@@ -10,8 +10,9 @@
 //! ```
 //! use springtime_di::component::Component;
 //! use springtime_di::instance_provider::ComponentInstancePtr;
-//! use springtime_di::{Component, component_alias};
+//! use springtime_di::{Component, component_alias, injectable};
 //!
+//! #[injectable]
 //! trait TestTrait {}
 //!
 //! #[derive(Component)]
@@ -56,17 +57,19 @@
 //!
 //! Component aliases are different types, which can refer to a concrete component type. Usually
 //! they are simply `dyn Traits`, which makes it possible to inject an abstract `dyn Trait` type
-//! instead of a concrete component type.
+//! instead of a concrete component type. Each injectable trait should be marked as such, which can
+//! be done with the `#[injectable]` helper attribute.
 //!
 //! To automatically register a component alias, use the `#[component_alias]` attribute on a trait
 //! implementation:
 //!
 //! ```
-//! use springtime_di::{Component, component_alias};
+//! use springtime_di::{Component, component_alias, injectable};
 //!
 //! #[derive(Component)]
 //! struct SomeComponent;
 //!
+//! #[injectable]
 //! trait SomeTrait {
 //! }
 //!
@@ -94,25 +97,21 @@ use crate::instance_provider::{
 /// Components might depend on other components, which forms the basis for dependency injection. To
 /// make the system work, your component instances must be wrapped in a [ComponentInstancePtr].
 /// Please see the module-level documentation for more information.
-pub trait Component: ComponentDowncast {
+pub trait Component: ComponentDowncast<Self> + Sized {
     /// Creates an instance of this component using dependencies from given [ComponentInstanceProvider].
     fn create(
         instance_provider: &dyn ComponentInstanceProvider,
-    ) -> Result<Self, ComponentInstanceProviderError>
-    where
-        Self: Sized;
+    ) -> Result<Self, ComponentInstanceProviderError>;
 }
 
 /// Helper trait for traits implemented by components, thus allowing injection of components based
-/// on `dyn Trait` types. Typically automatically derived when using the `#[component_alias]`
-/// attribute.
-pub trait ComponentDowncast {
+/// on `dyn Trait` types. The type `C` refers to a concrete component type. Typically automatically
+/// derived when using the `#[component_alias]` attribute.
+pub trait ComponentDowncast<C: Component>: Injectable {
     fn downcast(
         source: ComponentInstanceAnyPtr,
     ) -> Result<ComponentInstancePtr<Self>, ComponentInstanceAnyPtr>;
 }
 
 /// Marker trait for injectable types - components and aliases.
-pub trait Injectable {}
-
-impl<T: ComponentDowncast + ?Sized> Injectable for T {}
+pub trait Injectable: 'static {}

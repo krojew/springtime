@@ -195,6 +195,34 @@ fn generate_names(attribute_names: Option<ExprArray>, ident: &Ident) -> Vec<Stri
         .unwrap_or_else(|| vec![ident.to_string().to_case(Case::Snake)])
 }
 
+pub fn generate_injectable(item: &Item) -> Result<TokenStream> {
+    if let Item::Trait(item_trait) = item {
+        let ident = &item_trait.ident;
+
+        #[cfg(feature = "threadsafe")]
+        let trait_bounds = quote!( + Sync + Send);
+        #[cfg(not(feature = "threadsafe"))]
+        let trait_bounds = quote!();
+
+        Ok(quote! {
+            #[automatically_derived]
+            impl springtime_di::component::Injectable for dyn #ident #trait_bounds {}
+        })
+    } else if let Item::Struct(item_struct) = item {
+        let ident = &item_struct.ident;
+
+        Ok(quote! {
+            #[automatically_derived]
+            impl springtime_di::component::Injectable for #ident {}
+        })
+    } else {
+        Err(Error::new(
+            item.span(),
+            "Only traits or structs can be marked as injectable!",
+        ))
+    }
+}
+
 pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
     if let Data::Struct(DataStruct { fields, .. }) = &input.data {
         let ident = &input.ident;
@@ -215,7 +243,10 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
 
         Ok(quote! {
             #[automatically_derived]
-            impl springtime_di::component::ComponentDowncast for #ident {
+            impl springtime_di::component::Injectable for #ident {}
+
+            #[automatically_derived]
+            impl springtime_di::component::ComponentDowncast<#ident> for #ident {
                 fn downcast(
                     source: springtime_di::instance_provider::ComponentInstanceAnyPtr,
                 ) -> Result<springtime_di::instance_provider::ComponentInstancePtr<Self>, springtime_di::instance_provider::ComponentInstanceAnyPtr> {
@@ -238,13 +269,27 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
                     #ident::create(instance_provider).map(|p| springtime_di::instance_provider::ComponentInstancePtr::new(p) as springtime_di::instance_provider::ComponentInstanceAnyPtr)
                 }
 
+                #[allow(unsafe_code)]
+                unsafe fn cast(
+                    instance: springtime_di::instance_provider::ComponentInstanceAnyPtr,
+                    result: *mut (),
+                ) -> Result<(), springtime_di::instance_provider::ComponentInstanceAnyPtr> {
+                    use springtime_di::component::ComponentDowncast;
+                    let p = #ident::downcast(instance)?;
+                    let result = &mut *(result as *mut Option<springtime_di::instance_provider::ComponentInstancePtr<#ident>>);
+                    *result = Some(p);
+                    Ok(())
+                }
+
                 fn register() -> springtime_di::component_registry::internal::TypedComponentDefinition {
-                    use std::any::TypeId;
+                    use std::any::{TypeId, type_name};
                     springtime_di::component_registry::internal::TypedComponentDefinition {
                         target: TypeId::of::<#ident>(),
+                        target_name: type_name::<#ident>(),
                         metadata: springtime_di::component_registry::ComponentMetadata {
                             names: vec![#(#names.to_string()),*],
                             constructor,
+                            cast,
                         },
                     }
                 }
@@ -293,7 +338,7 @@ pub fn register_component_alias(
 
         Ok(quote! {
             #[automatically_derived]
-            impl springtime_di::component::ComponentDowncast for dyn #trait_type #trait_bounds {
+            impl springtime_di::component::ComponentDowncast<#target_type> for dyn #trait_type #trait_bounds {
                 fn downcast(
                     source: springtime_di::instance_provider::ComponentInstanceAnyPtr,
                 ) -> Result<springtime_di::instance_provider::ComponentInstancePtr<Self>, springtime_di::instance_provider::ComponentInstanceAnyPtr> {
@@ -302,20 +347,35 @@ pub fn register_component_alias(
             }
 
             const _: () = {
+                #[allow(unsafe_code)]
+                unsafe fn cast(
+                    instance: springtime_di::instance_provider::ComponentInstanceAnyPtr,
+                    result: *mut (),
+                ) -> Result<(), springtime_di::instance_provider::ComponentInstanceAnyPtr> {
+                    use springtime_di::component::ComponentDowncast;
+                    let p = <dyn #trait_type #trait_bounds as springtime_di::component::ComponentDowncast<#target_type>>::downcast(instance)?;
+                    let result = &mut *(result as *mut Option<springtime_di::instance_provider::ComponentInstancePtr<dyn #trait_type #trait_bounds>>);
+                    *result = Some(p);
+                    Ok(())
+                }
+
                 fn register() -> springtime_di::component_registry::internal::TraitComponentDefinition {
-                    use std::any::TypeId;
+                    use std::any::{TypeId, type_name};
                     springtime_di::component_registry::internal::TraitComponentDefinition {
                         trait_type: TypeId::of::<dyn #trait_type #trait_bounds>(),
                         target_type: TypeId::of::<#target_type>(),
+                        trait_name: type_name::<dyn #trait_type #trait_bounds>(),
+                        target_name: type_name::<#target_type>(),
                         metadata: springtime_di::component_registry::ComponentAliasMetadata {
-                            is_primary: #is_primary
+                            is_primary: #is_primary,
+                            cast,
                         }
                     }
                 }
 
                 springtime_di::component_registry::internal::submit! {
                     springtime_di::component_registry::internal::TraitComponentRegisterer {
-                        register
+                        register,
                     }
                 };
             };

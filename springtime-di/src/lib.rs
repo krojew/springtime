@@ -13,12 +13,13 @@
 //! ```
 //! use springtime_di::component::Component;
 //! use springtime_di::instance_provider::ComponentInstancePtr;
-//! use springtime_di::{Component, component_alias};
+//! use springtime_di::{Component, component_alias, injectable};
 //!
 //! // this is a trait we would like to use in our component
+//! #[injectable]
 //! trait TestTrait {}
 //!
-//! // this is a dependency which implements the above trait and also an injectable component
+//! // this is a dependency which implements the above trait and also is an injectable component
 //! #[derive(Component)]
 //! struct TestDependency;
 //!

@@ -1,24 +1,30 @@
 #[cfg(feature = "derive")]
-mod component_test {
-    use springtime_di::component::Component;
+mod component_derive_test {
+    use springtime_di::component::{Component, ComponentDowncast};
     use springtime_di::component_registry::{
         ComponentDefinitionRegistry, StaticComponentDefinitionRegistry,
     };
     use springtime_di::error::ComponentInstanceProviderError;
     use springtime_di::instance_provider::{
-        ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
+        CastFunction, ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
     };
-    use springtime_di::{component_alias, Component};
+    use springtime_di::{component_alias, injectable, Component};
     use std::any::TypeId;
 
+    #[injectable]
     trait TestTrait1 {}
 
+    #[injectable]
     trait TestTrait2 {}
 
+    #[injectable]
     trait TestTrait3 {}
 
     #[derive(Component)]
     struct TestDependency;
+
+    #[component_alias]
+    impl TestTrait2 for TestDependency {}
 
     #[component_alias]
     impl TestTrait3 for TestDependency {}
@@ -55,21 +61,68 @@ mod component_test {
         -1
     }
 
+    unsafe fn cast_dependency(
+        instance: ComponentInstanceAnyPtr,
+        result: *mut (),
+    ) -> Result<(), ComponentInstanceAnyPtr> {
+        let p = TestDependency::downcast(instance)?;
+        let result = &mut *(result as *mut Option<ComponentInstancePtr<TestDependency>>);
+        result.replace(p);
+        Ok(())
+    }
+
+    unsafe fn cast_trait(
+        instance: ComponentInstanceAnyPtr,
+        result: *mut (),
+    ) -> Result<(), ComponentInstanceAnyPtr> {
+        #[cfg(feature = "threadsafe")]
+        {
+            let p = <dyn TestTrait3 + Sync + Send as ComponentDowncast<TestDependency>>::downcast(
+                instance,
+            )?;
+            let result =
+                &mut *(result as *mut Option<ComponentInstancePtr<dyn TestTrait3 + Sync + Send>>);
+            result.replace(p);
+        }
+        #[cfg(not(feature = "threadsafe"))]
+        {
+            let p = <dyn TestTrait3 as ComponentDowncast<TestDependency>>::downcast(instance)?;
+            let result = &mut *(result as *mut Option<ComponentInstancePtr<dyn TestTrait3>>);
+            result.replace(p);
+        }
+
+        Ok(())
+    }
+
     struct TestDependencyInstanceProvider;
 
     impl ComponentInstanceProvider for TestDependencyInstanceProvider {
         fn primary_instance(
             &self,
             type_id: TypeId,
-        ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
+        ) -> Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError>
+        {
             #[cfg(feature = "threadsafe")]
             let trait_type = TypeId::of::<dyn TestTrait3 + Sync + Send>();
             #[cfg(not(feature = "threadsafe"))]
             let trait_type = TypeId::of::<dyn TestTrait3>();
 
-            if type_id == trait_type || type_id == TypeId::of::<TestDependency>() {
-                return TestDependency::create(self)
-                    .map(|p| ComponentInstancePtr::new(p) as ComponentInstanceAnyPtr);
+            if type_id == TypeId::of::<TestDependency>() {
+                return TestDependency::create(self).map(|p| {
+                    (
+                        ComponentInstancePtr::new(p) as ComponentInstanceAnyPtr,
+                        cast_dependency as CastFunction,
+                    )
+                });
+            }
+
+            if type_id == trait_type {
+                return TestDependency::create(self).map(|p| {
+                    (
+                        ComponentInstancePtr::new(p) as ComponentInstanceAnyPtr,
+                        cast_trait as CastFunction,
+                    )
+                });
             }
 
             Err(ComponentInstanceProviderError::NoPrimaryInstance(type_id))
@@ -78,8 +131,10 @@ mod component_test {
         fn instances(
             &self,
             type_id: TypeId,
-        ) -> Result<Vec<ComponentInstanceAnyPtr>, ComponentInstanceProviderError> {
-            self.primary_instance(type_id).map(|p| vec![p])
+        ) -> Result<(Vec<ComponentInstanceAnyPtr>, CastFunction), ComponentInstanceProviderError>
+        {
+            self.primary_instance(type_id)
+                .map(|(p, cast)| (vec![p], cast))
         }
     }
 
