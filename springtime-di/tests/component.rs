@@ -41,7 +41,7 @@ mod component_derive_test {
         _default: i8,
         #[component(default = "dummy_expr")]
         _default_expr: i8,
-        _all_deps: Vec<ComponentInstancePtr<dyn TestTrait3 + Sync + Send>>,
+        _all_dependencies: Vec<ComponentInstancePtr<dyn TestTrait3 + Sync + Send>>,
     }
 
     #[derive(Component)]
@@ -135,6 +135,21 @@ mod component_derive_test {
         {
             self.primary_instance(type_id)
                 .map(|(p, cast)| (vec![p], cast))
+        }
+
+        fn instance_by_name(
+            &self,
+            type_id: TypeId,
+            name: &str,
+        ) -> Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError>
+        {
+            if name == "testDependency" {
+                self.primary_instance(type_id)
+            } else {
+                Err(ComponentInstanceProviderError::NoNamedInstance(
+                    name.to_string(),
+                ))
+            }
         }
     }
 

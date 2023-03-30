@@ -23,3 +23,6 @@ inventory = "0.3.4"
 itertools = "0.10.5"
 springtime-di-derive = { path = "../springtime-di-derive", version = "0.1", optional = true }
 thiserror = "1.0.39"
+
+[dev-dependencies]
+mockall = "0.11.4"

@@ -486,6 +486,7 @@ pub mod internal {
 }
 
 #[cfg(test)]
+//noinspection DuplicatedCode
 mod tests {
     use crate::component::{Component, ComponentDowncast, Injectable};
     use crate::component_registry::{

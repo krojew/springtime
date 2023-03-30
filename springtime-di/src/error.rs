@@ -8,6 +8,8 @@ pub enum ComponentInstanceProviderError {
     NoPrimaryInstance(TypeId),
     #[error("Tried to downcast component to incompatible type: {0:?}")]
     IncompatibleComponent(TypeId),
+    #[error("Cannot find named component: {0}")]
+    NoNamedInstance(String),
 }
 
 /// Error related to component registries.
