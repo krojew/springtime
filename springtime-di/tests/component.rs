@@ -37,6 +37,18 @@ mod component_derive_test {
         #[cfg(not(feature = "threadsafe"))]
         _dependency_2: ComponentInstancePtr<dyn TestTrait3>,
         _optional_dependency: Option<ComponentInstancePtr<TestDependency>>,
+        #[cfg(feature = "threadsafe")]
+        #[component(name = "test_dependency")]
+        _named_dependency: ComponentInstancePtr<dyn TestTrait3 + Sync + Send>,
+        #[cfg(not(feature = "threadsafe"))]
+        #[component(name = "test_dependency")]
+        _named_dependency: ComponentInstancePtr<dyn TestTrait3>,
+        #[cfg(feature = "threadsafe")]
+        #[component(name = "test_dependency")]
+        _named_optional_dependency: Option<ComponentInstancePtr<dyn TestTrait3 + Sync + Send>>,
+        #[cfg(not(feature = "threadsafe"))]
+        #[component(name = "test_dependency")]
+        _named_optional_dependency: Option<ComponentInstancePtr<dyn TestTrait3>>,
         #[component(default)]
         _default: i8,
         #[component(default = "dummy_expr")]
@@ -143,7 +155,7 @@ mod component_derive_test {
             name: &str,
         ) -> Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError>
         {
-            if name == "testDependency" {
+            if name == "test_dependency" {
                 self.primary_instance(type_id)
             } else {
                 Err(ComponentInstanceProviderError::NoNamedInstance(

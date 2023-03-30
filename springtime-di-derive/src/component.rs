@@ -9,8 +9,8 @@ use std::ops::Deref;
 use syn::spanned::Spanned;
 use syn::{
     Attribute, Data, DataStruct, DeriveInput, Error, Expr, ExprArray, ExprLit, Field, Fields,
-    FieldsNamed, FieldsUnnamed, GenericArgument, Item, Lit, PathArguments, Result, Type, TypePath,
-    TypeTraitObject,
+    FieldsNamed, FieldsUnnamed, GenericArgument, Item, Lit, LitStr, PathArguments, Result, Type,
+    TypePath, TypeTraitObject,
 };
 
 const COMPONENT_ATTR: &str = "component";
@@ -94,7 +94,7 @@ fn get_injected_vec_type(ty: &Type) -> Option<TokenStream> {
     get_wrapped_type(ty, "Vec")
 }
 
-fn get_single_instance(ty: &Type) -> TokenStream {
+fn get_single_unnamed_instance(ty: &Type) -> TokenStream {
     let (getter, ty) = get_injected_option_type(ty)
         .map(|ty| (quote!(primary_instance_option), ty))
         .or_else(|| get_injected_vec_type(ty).map(|ty| (quote!(instances_typed), ty)))
@@ -105,21 +105,35 @@ fn get_single_instance(ty: &Type) -> TokenStream {
     }
 }
 
+fn get_single_named_instance(ty: &Type, name: &LitStr) -> TokenStream {
+    let (getter, ty) = get_injected_option_type(ty)
+        .map(|ty| (quote!(instance_by_name_option), ty))
+        .or_else(|| get_injected_vec_type(ty).map(|ty| (quote!(instances_typed), ty)))
+        .unwrap_or_else(|| (quote!(instance_by_name_typed), get_injected_type(ty)));
+
+    quote! {
+        instance_provider.#getter::<#ty>(#name)?
+    }
+}
+
+fn get_single_instance(ty: &Type, name: Option<&LitStr>) -> TokenStream {
+    name.map(|name| get_single_named_instance(ty, name))
+        .unwrap_or_else(|| get_single_unnamed_instance(ty))
+}
+
 fn generate_construction(field: &Field) -> Result<TokenStream> {
     for attr in &field.attrs {
         if attr.path().is_ident(COMPONENT_ATTR) {
             let attributes = FieldAttributes::try_from(attr)?;
-            match &attributes.default {
-                Some(DefaultDefinition::Expr(path)) => return Ok(quote!(#path())),
-                Some(DefaultDefinition::Default) => {
-                    return Ok(quote!(std::default::Default::default()))
-                }
-                _ => {}
-            }
+            return match &attributes.default {
+                Some(DefaultDefinition::Expr(path)) => Ok(quote!(#path())),
+                Some(DefaultDefinition::Default) => Ok(quote!(std::default::Default::default())),
+                _ => Ok(get_single_instance(&field.ty, attributes.name.as_ref())),
+            };
         }
     }
 
-    Ok(get_single_instance(&field.ty))
+    Ok(get_single_instance(&field.ty, None))
 }
 
 fn make_named_struct(fields: &FieldsNamed) -> Result<TokenStream> {

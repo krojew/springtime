@@ -1,4 +1,5 @@
 use syn::parse::{Parse, ParseStream};
+use syn::spanned::Spanned;
 use syn::{Attribute, Error, Expr, ExprArray, ExprPath, LitStr, Token};
 
 pub enum DefaultDefinition {
@@ -8,6 +9,7 @@ pub enum DefaultDefinition {
 
 pub struct FieldAttributes {
     pub default: Option<DefaultDefinition>,
+    pub name: Option<LitStr>,
 }
 
 impl TryFrom<&Attribute> for FieldAttributes {
@@ -15,8 +17,17 @@ impl TryFrom<&Attribute> for FieldAttributes {
 
     fn try_from(value: &Attribute) -> Result<Self, Self::Error> {
         let mut default = None;
+        let mut name = None;
+
         value.parse_nested_meta(|meta| {
             if meta.path.is_ident("default") {
+                if name.is_some() {
+                    return Err(Error::new(
+                        value.span(),
+                        "Cannot use default value when injecting a named instance!",
+                    ));
+                }
+
                 if meta.input.peek(Token![=]) {
                     let value = meta.value()?;
                     let expr: LitStr = value.parse()?;
@@ -24,12 +35,22 @@ impl TryFrom<&Attribute> for FieldAttributes {
                 } else {
                     default = Some(DefaultDefinition::Default);
                 }
+            } else if meta.path.is_ident("name") {
+                if default.is_some() {
+                    return Err(Error::new(
+                        value.span(),
+                        "Cannot inject a named instance if using the default value!",
+                    ));
+                }
+
+                let value = meta.value()?;
+                name = Some(value.parse()?);
             }
 
             Ok(())
         })?;
 
-        Ok(Self { default })
+        Ok(Self { default, name })
     }
 }
 
