@@ -245,15 +245,16 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
             Fields::Unnamed(fields) => make_unnamed_struct(fields)?,
             Fields::Unit => quote! { Self },
         };
-        let names = {
-            if let Some(ComponentAttributes { names }) = extract_component_attributes(&input.attrs)?
-            {
-                names
-            } else {
-                None
-            }
-        };
+        let attributes = extract_component_attributes(&input.attrs)?;
+        let names = attributes
+            .as_ref()
+            .and_then(|attributes| attributes.names.clone());
         let names = generate_names(names, &input.ident);
+        let condition = attributes
+            .as_ref()
+            .and_then(|attributes| attributes.condition.clone())
+            .map(|condition| quote!(Some(#condition)))
+            .unwrap_or_else(|| quote!(None));
 
         Ok(quote! {
             #[automatically_derived]
@@ -300,6 +301,7 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
                     springtime_di::component_registry::internal::TypedComponentDefinition {
                         target: TypeId::of::<#ident>(),
                         target_name: type_name::<#ident>(),
+                        condition: #condition,
                         metadata: springtime_di::component_registry::ComponentMetadata {
                             names: vec![#(#names.to_string()),*],
                             constructor,
@@ -344,6 +346,11 @@ pub fn register_component_alias(
         };
 
         let is_primary = args.is_primary;
+        let condition = args
+            .condition
+            .as_ref()
+            .map(|condition| quote!(Some(#condition)))
+            .unwrap_or_else(|| quote!(None));
 
         #[cfg(feature = "threadsafe")]
         let trait_bounds = quote!( + Sync + Send);
@@ -380,6 +387,7 @@ pub fn register_component_alias(
                         target_type: TypeId::of::<#target_type>(),
                         trait_name: type_name::<dyn #trait_type #trait_bounds>(),
                         target_name: type_name::<#target_type>(),
+                        condition: #condition,
                         metadata: springtime_di::component_registry::ComponentAliasMetadata {
                             is_primary: #is_primary,
                             cast,

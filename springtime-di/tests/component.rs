@@ -1,8 +1,10 @@
 #[cfg(feature = "derive")]
 mod component_derive_test {
     use springtime_di::component::{Component, ComponentDowncast};
+    use springtime_di::component_registry::conditional::{Context, SimpleContextFactory};
     use springtime_di::component_registry::{
-        ComponentDefinitionRegistry, StaticComponentDefinitionRegistry,
+        ComponentAliasMetadata, ComponentDefinitionRegistry, ComponentMetadata,
+        StaticComponentDefinitionRegistry,
     };
     use springtime_di::error::ComponentInstanceProviderError;
     use springtime_di::instance_provider::{
@@ -57,7 +59,7 @@ mod component_derive_test {
     }
 
     #[derive(Component)]
-    #[component(names = ["dep2"])]
+    #[component(names = ["dep2"], condition = "dummy_component_condition")]
     struct TestComponent2(
         ComponentInstancePtr<TestDependency>,
         #[component(default = "dummy_expr")] i8,
@@ -66,11 +68,19 @@ mod component_derive_test {
     #[component_alias]
     impl TestTrait1 for TestComponent2 {}
 
-    #[component_alias(primary)]
+    #[component_alias(primary, condition = "dummy_alias_condition")]
     impl TestTrait2 for TestComponent2 {}
 
     fn dummy_expr() -> i8 {
         -1
+    }
+
+    fn dummy_component_condition(_context: &dyn Context, _metadata: &ComponentMetadata) -> bool {
+        true
+    }
+
+    fn dummy_alias_condition(_context: &dyn Context, _metadata: &ComponentAliasMetadata) -> bool {
+        true
     }
 
     unsafe fn cast_dependency(
@@ -165,6 +175,24 @@ mod component_derive_test {
         }
     }
 
+    #[derive(Component)]
+    #[component(condition = "disabled_condition")]
+    struct DisabledComponent;
+
+    fn disabled_condition(_context: &dyn Context, _metadata: &ComponentMetadata) -> bool {
+        false
+    }
+
+    #[test]
+    fn should_not_register_disabled_component() {
+        let registry =
+            StaticComponentDefinitionRegistry::new(false, &SimpleContextFactory::default())
+                .unwrap();
+        assert!(!ComponentDefinitionRegistry::is_registered::<
+            DisabledComponent,
+        >(&registry));
+    }
+
     #[test]
     fn should_directly_create_with_explicit_dependency() {
         let mut instance_provider = TestDependencyInstanceProvider;
@@ -174,7 +202,9 @@ mod component_derive_test {
 
     #[test]
     fn should_register_components() {
-        let registry = StaticComponentDefinitionRegistry::new(false).unwrap();
+        let registry =
+            StaticComponentDefinitionRegistry::new(false, &SimpleContextFactory::default())
+                .unwrap();
         assert!(registry.components_by_type::<TestDependency>().is_some());
         assert!(registry.components_by_type::<TestComponent2>().is_some());
 

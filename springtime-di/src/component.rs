@@ -31,7 +31,7 @@
 //!     // optional dependency - don't fail, when not present
 //!     optional_dependency: Option<ComponentInstancePtr<TestDependency>>,
 //!     // all registered dependencies of given type
-//!     all_deps: Vec<ComponentInstancePtr<dyn TestTrait + Sync + Send>>,
+//!     all_dependencies: Vec<ComponentInstancePtr<dyn TestTrait + Sync + Send>>,
 //!     #[component(default)]
 //!     default: i8,
 //!     #[component(default = "dummy_expr")]
@@ -47,11 +47,14 @@
 //!
 //! * `names = ["name"]` - use given name list as the component names, instead of the auto-generated
 //! one
+//! * `condition = "expr"` - call `expr()` and evaluate if given component should be registered; see
+//! [crate::component_registry::conditional]
 //!
 //! ### Supported `#[component]` field configuration
 //!
 //! * `default` - use `Default::default()` initialization
 //! * `default = "expr"` - call `expr()` for initialization
+//! * `name = "name"` - inject instance named as `name`
 //!
 //! ## Registering component aliases
 //!
@@ -86,6 +89,8 @@
 //! * `primary` - mark the concrete component, for which we're implementing the trait, as selected
 //! (primary) when requesting a single instance of `ComponentInstancePtr<dyn Trait>` and multiple
 //! components are available
+//! * `condition = "expr"` - call `expr()` and evaluate if given component should be registered; see
+//! [crate::component_registry::conditional]
 
 use crate::error::ComponentInstanceProviderError;
 use crate::instance_provider::{

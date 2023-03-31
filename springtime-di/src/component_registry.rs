@@ -2,14 +2,19 @@
 //! should create [Component] instances based on those definitions, which can be registered
 //! automatically or manually.
 
+pub mod conditional;
+
 use crate::component::{Component, ComponentDowncast, Injectable};
+use crate::component_registry::conditional::{ComponentDefinitionRegistryFacade, ContextFactory};
 use crate::component_registry::internal::{
-    ComponentDefinitionRegisterer, TraitComponentRegisterer,
+    ComponentDefinitionRegisterer, TraitComponentDefinition, TraitComponentRegisterer,
+    TypedComponentDefinition,
 };
 use crate::component_registry::registry::NamedComponentDefinitionMap;
 use crate::error::{ComponentDefinitionRegistryError, ComponentInstanceProviderError};
 use crate::instance_provider::{CastFunction, ComponentInstanceAnyPtr, ComponentInstanceProvider};
 use derivative::Derivative;
+use itertools::Itertools;
 use std::any::{type_name, TypeId};
 
 /// Definition for a [Component] registered in a definition registry.
@@ -71,7 +76,7 @@ pub trait ComponentDefinitionRegistry {
     /// registry-dependent.
     fn register_component<T: Component>(
         &mut self,
-        metadata: ComponentMetadata,
+        metadata: &ComponentMetadata,
     ) -> Result<(), ComponentDefinitionRegistryError>;
 
     /// Adds an alias `Source` for component of type `Target`. This is useful when registering
@@ -81,7 +86,7 @@ pub trait ComponentDefinitionRegistry {
     /// therefore making it possible to get the component by multiple names.
     fn register_alias<Source: ComponentDowncast<Target> + ?Sized, Target: Component>(
         &mut self,
-        metadata: ComponentAliasMetadata,
+        metadata: &ComponentAliasMetadata,
     ) -> Result<(), ComponentDefinitionRegistryError>;
 
     /// Returns all registered definitions for a given type.
@@ -100,49 +105,144 @@ pub trait ComponentDefinitionRegistry {
 /// Registry of component definitions initialized from statically registered definitions.
 #[derive(Clone, Debug)]
 pub struct StaticComponentDefinitionRegistry {
-    definitions: NamedComponentDefinitionMap,
+    definition_map: NamedComponentDefinitionMap,
     allow_definition_overriding: bool,
 }
 
 impl StaticComponentDefinitionRegistry {
-    pub fn new(
+    pub fn new<CF: ContextFactory>(
         allow_definition_overriding: bool,
+        context_factory: &CF,
     ) -> Result<Self, ComponentDefinitionRegistryError> {
-        let mut definitions = NamedComponentDefinitionMap::default();
-        for registerer in inventory::iter::<ComponentDefinitionRegisterer> {
-            let definition = (registerer.register)();
-            definitions.try_register_component(
+        let component_definitions: Vec<TypedComponentDefinition> =
+            inventory::iter::<ComponentDefinitionRegisterer>
+                .into_iter()
+                .map(|registerer| (registerer.register)())
+                .collect_vec();
+
+        let alias_definitions: Vec<TraitComponentDefinition> =
+            inventory::iter::<TraitComponentRegisterer>
+                .into_iter()
+                .map(|registerer| (registerer.register)())
+                .collect_vec();
+
+        let definition_map = Self::register_unconditional_components(
+            &component_definitions,
+            allow_definition_overriding,
+        )?;
+
+        let mut registry = Self {
+            definition_map,
+            allow_definition_overriding,
+        };
+
+        registry.register_conditional_components(
+            &component_definitions,
+            &alias_definitions,
+            context_factory,
+        )?;
+
+        registry.register_unconditional_aliases(&alias_definitions)?;
+
+        Ok(registry)
+    }
+
+    fn register_conditional_components<CF: ContextFactory>(
+        &mut self,
+        component_definitions: &[TypedComponentDefinition],
+        alias_definitions: &[TraitComponentDefinition],
+        context_factory: &CF,
+    ) -> Result<(), ComponentDefinitionRegistryError> {
+        if component_definitions.is_empty() && alias_definitions.is_empty() {
+            return Ok(());
+        }
+
+        let mut definition_map = self.definition_map.clone();
+
+        {
+            let context = context_factory.create_context(self);
+
+            for definition in component_definitions {
+                if let Some(condition) = &definition.condition {
+                    if (condition)(context.as_ref(), &definition.metadata) {
+                        definition_map.try_register_component(
+                            definition.target,
+                            definition.target_name,
+                            &definition.metadata,
+                            self.allow_definition_overriding,
+                        )?;
+                    }
+                }
+            }
+
+            for definition in alias_definitions {
+                if let Some(condition) = &definition.condition {
+                    if (condition)(context.as_ref(), &definition.metadata) {
+                        definition_map.try_register_alias(
+                            definition.trait_type,
+                            definition.target_type,
+                            definition.trait_name,
+                            definition.target_name,
+                            &definition.metadata,
+                        )?;
+                    }
+                }
+            }
+        }
+
+        self.definition_map = definition_map;
+
+        Ok(())
+    }
+
+    fn register_unconditional_components(
+        component_definitions: &[TypedComponentDefinition],
+        allow_definition_overriding: bool,
+    ) -> Result<NamedComponentDefinitionMap, ComponentDefinitionRegistryError> {
+        let mut definition_map = NamedComponentDefinitionMap::default();
+
+        for definition in component_definitions
+            .iter()
+            .filter(|definition| definition.condition.is_none())
+        {
+            definition_map.try_register_component(
                 definition.target,
                 definition.target_name,
-                definition.metadata,
+                &definition.metadata,
                 allow_definition_overriding,
             )?;
         }
 
-        for registerer in inventory::iter::<TraitComponentRegisterer> {
-            let definition = (registerer.register)();
-            definitions.try_register_alias(
+        Ok(definition_map)
+    }
+
+    fn register_unconditional_aliases(
+        &mut self,
+        alias_definitions: &[TraitComponentDefinition],
+    ) -> Result<(), ComponentDefinitionRegistryError> {
+        for definition in alias_definitions
+            .iter()
+            .filter(|definition| definition.condition.is_none())
+        {
+            self.definition_map.try_register_alias(
                 definition.trait_type,
                 definition.target_type,
                 definition.trait_name,
                 definition.target_name,
-                definition.metadata,
+                &definition.metadata,
             )?;
         }
 
-        Ok(Self {
-            definitions,
-            allow_definition_overriding,
-        })
+        Ok(())
     }
 }
 
 impl ComponentDefinitionRegistry for StaticComponentDefinitionRegistry {
     fn register_component<T: Component>(
         &mut self,
-        metadata: ComponentMetadata,
+        metadata: &ComponentMetadata,
     ) -> Result<(), ComponentDefinitionRegistryError> {
-        self.definitions.try_register_component(
+        self.definition_map.try_register_component(
             TypeId::of::<T>(),
             type_name::<T>(),
             metadata,
@@ -153,9 +253,9 @@ impl ComponentDefinitionRegistry for StaticComponentDefinitionRegistry {
     #[inline]
     fn register_alias<Source: ComponentDowncast<Target> + ?Sized, Target: Component>(
         &mut self,
-        metadata: ComponentAliasMetadata,
+        metadata: &ComponentAliasMetadata,
     ) -> Result<(), ComponentDefinitionRegistryError> {
-        self.definitions.try_register_alias(
+        self.definition_map.try_register_alias(
             TypeId::of::<Source>(),
             TypeId::of::<Target>(),
             type_name::<Source>(),
@@ -166,22 +266,34 @@ impl ComponentDefinitionRegistry for StaticComponentDefinitionRegistry {
 
     #[inline]
     fn components_by_type<T: Injectable + ?Sized>(&self) -> Option<Vec<ComponentDefinition>> {
-        self.definitions.components_by_type(TypeId::of::<T>())
+        self.definition_map.components_by_type(TypeId::of::<T>())
     }
 
     #[inline]
     fn component_by_name(&self, name: &str) -> Option<ComponentDefinition> {
-        self.definitions.component_by_name(name)
+        self.definition_map.component_by_name(name)
     }
 
     #[inline]
     fn is_registered<T: Injectable>(&self) -> bool {
-        self.definitions.is_registered(TypeId::of::<T>())
+        <Self as ComponentDefinitionRegistryFacade>::is_registered(self, TypeId::of::<T>())
     }
 
     #[inline]
     fn is_name_registered(&self, name: &str) -> bool {
-        self.definitions.is_name_registered(name)
+        <Self as ComponentDefinitionRegistryFacade>::is_name_registered(self, name)
+    }
+}
+
+impl ComponentDefinitionRegistryFacade for StaticComponentDefinitionRegistry {
+    #[inline]
+    fn is_registered(&self, target: TypeId) -> bool {
+        self.definition_map.is_registered(target)
+    }
+
+    #[inline]
+    fn is_name_registered(&self, name: &str) -> bool {
+        self.definition_map.is_name_registered(name)
     }
 }
 
@@ -224,7 +336,7 @@ mod registry {
             target_type: TypeId,
             alias_name: &str,
             target_name: &str,
-            metadata: ComponentAliasMetadata,
+            metadata: &ComponentAliasMetadata,
         ) -> Result<(), ComponentDefinitionRegistryError> {
             let mut target_definitions = self
                 .definitions
@@ -265,7 +377,7 @@ mod registry {
             &mut self,
             target: TypeId,
             target_name: &str,
-            metadata: ComponentMetadata,
+            metadata: &ComponentMetadata,
             allow_definition_overriding: bool,
         ) -> Result<(), ComponentDefinitionRegistryError> {
             if !allow_definition_overriding {
@@ -283,7 +395,7 @@ mod registry {
             }
 
             let definition = ComponentDefinition {
-                names: metadata.names,
+                names: metadata.names.clone(),
                 is_primary: false,
                 constructor: metadata.constructor,
                 cast: metadata.cast,
@@ -321,7 +433,10 @@ mod registry {
 
         #[inline]
         pub(super) fn is_registered(&self, target: TypeId) -> bool {
-            self.definitions.contains_key(&target)
+            self.definitions
+                .get(&target)
+                .map(|definitions| !definitions.is_empty())
+                .unwrap_or(false)
         }
 
         #[inline]
@@ -370,7 +485,7 @@ mod registry {
 
             let mut registry = NamedComponentDefinitionMap::default();
             registry
-                .try_register_component(id, "", definition.clone(), false)
+                .try_register_component(id, "", &definition, false)
                 .unwrap();
 
             assert_eq!(
@@ -391,12 +506,12 @@ mod registry {
 
             let mut registry = NamedComponentDefinitionMap::default();
             registry
-                .try_register_component(id, "", definition.clone(), false)
+                .try_register_component(id, "", &definition, false)
                 .unwrap();
 
             assert!(matches!(
                 registry
-                    .try_register_component(id, "", definition, false)
+                    .try_register_component(id, "", &definition, false)
                     .unwrap_err(),
                 ComponentDefinitionRegistryError::DuplicateComponentName(..)
             ));
@@ -408,10 +523,10 @@ mod registry {
 
             let mut registry = NamedComponentDefinitionMap::default();
             registry
-                .try_register_component(id, "", definition.clone(), true)
+                .try_register_component(id, "", &definition, true)
                 .unwrap();
             registry
-                .try_register_component(id, "", definition, true)
+                .try_register_component(id, "", &definition, true)
                 .unwrap();
         }
 
@@ -422,7 +537,7 @@ mod registry {
 
             let mut registry = NamedComponentDefinitionMap::default();
             registry
-                .try_register_component(id, "", definition.clone(), false)
+                .try_register_component(id, "", &definition, false)
                 .unwrap();
             registry
                 .try_register_alias(
@@ -430,7 +545,7 @@ mod registry {
                     id,
                     "",
                     "",
-                    ComponentAliasMetadata {
+                    &ComponentAliasMetadata {
                         is_primary: false,
                         cast,
                     },
@@ -450,7 +565,7 @@ mod registry {
 
             let mut registry = NamedComponentDefinitionMap::default();
             registry
-                .try_register_component(id, "", definition, false)
+                .try_register_component(id, "", &definition, false)
                 .unwrap();
             registry
                 .try_register_alias(
@@ -458,7 +573,7 @@ mod registry {
                     id,
                     "",
                     "",
-                    ComponentAliasMetadata {
+                    &ComponentAliasMetadata {
                         is_primary: true,
                         cast,
                     },
@@ -472,7 +587,7 @@ mod registry {
                         id,
                         "",
                         "",
-                        ComponentAliasMetadata {
+                        &ComponentAliasMetadata {
                             is_primary: true,
                             cast
                         }
@@ -486,6 +601,7 @@ mod registry {
 
 #[doc(hidden)]
 pub mod internal {
+    use crate::component_registry::conditional::{ComponentAliasCondition, ComponentCondition};
     use crate::component_registry::{ComponentAliasMetadata, ComponentMetadata};
     use inventory::collect;
     pub use inventory::submit;
@@ -494,6 +610,7 @@ pub mod internal {
     pub struct TypedComponentDefinition {
         pub target: TypeId,
         pub target_name: &'static str,
+        pub condition: Option<ComponentCondition>,
         pub metadata: ComponentMetadata,
     }
 
@@ -506,6 +623,7 @@ pub mod internal {
         pub target_type: TypeId,
         pub trait_name: &'static str,
         pub target_name: &'static str,
+        pub condition: Option<ComponentAliasCondition>,
         pub metadata: ComponentAliasMetadata,
     }
 
@@ -521,6 +639,9 @@ pub mod internal {
 //noinspection DuplicatedCode
 mod tests {
     use crate::component::{Component, ComponentDowncast, Injectable};
+    use crate::component_registry::conditional::{
+        ComponentDefinitionRegistryFacade, SimpleContextFactory,
+    };
     use crate::component_registry::{
         ComponentDefinition, ComponentDefinitionRegistry, ComponentMetadata,
         StaticComponentDefinitionRegistry,
@@ -529,6 +650,7 @@ mod tests {
     use crate::instance_provider::{
         ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
     };
+    use std::any::TypeId;
 
     struct TestComponent;
 
@@ -572,9 +694,11 @@ mod tests {
 
     #[test]
     fn should_register_definition() {
-        let mut registry = StaticComponentDefinitionRegistry::new(false).unwrap();
+        let mut registry =
+            StaticComponentDefinitionRegistry::new(false, &SimpleContextFactory::default())
+                .unwrap();
         registry
-            .register_component::<TestComponent>(ComponentMetadata {
+            .register_component::<TestComponent>(&ComponentMetadata {
                 names: vec!["a".to_string()],
                 constructor: test_constructor,
                 cast: test_cast,
@@ -584,7 +708,17 @@ mod tests {
         assert!(!registry
             .components_by_type::<TestComponent>()
             .unwrap()
-            .is_empty())
+            .is_empty());
+        assert!(ComponentDefinitionRegistry::is_registered::<TestComponent>(
+            &registry
+        ));
+        assert!(ComponentDefinitionRegistryFacade::is_registered(
+            &registry,
+            TypeId::of::<TestComponent>()
+        ));
+        assert!(ComponentDefinitionRegistry::is_name_registered(
+            &registry, "a"
+        ));
     }
 
     #[test]
@@ -596,9 +730,11 @@ mod tests {
             cast: test_cast,
         };
 
-        let mut registry = StaticComponentDefinitionRegistry::new(false).unwrap();
+        let mut registry =
+            StaticComponentDefinitionRegistry::new(false, &SimpleContextFactory::default())
+                .unwrap();
         registry
-            .register_component::<TestComponent>(ComponentMetadata {
+            .register_component::<TestComponent>(&ComponentMetadata {
                 names: definition.names.clone(),
                 constructor: test_constructor,
                 cast: test_cast,
@@ -607,7 +743,7 @@ mod tests {
 
         assert_eq!(
             registry
-                .register_component::<TestComponent>(ComponentMetadata {
+                .register_component::<TestComponent>(&ComponentMetadata {
                     names: definition.names.clone(),
                     constructor: test_constructor,
                     cast: test_cast,
@@ -619,16 +755,17 @@ mod tests {
 
     #[test]
     fn should_override_duplicate_name() {
-        let mut registry = StaticComponentDefinitionRegistry::new(true).unwrap();
+        let mut registry =
+            StaticComponentDefinitionRegistry::new(true, &SimpleContextFactory::default()).unwrap();
         registry
-            .register_component::<TestComponent>(ComponentMetadata {
+            .register_component::<TestComponent>(&ComponentMetadata {
                 names: vec!["name".to_string()],
                 constructor: test_constructor,
                 cast: test_cast,
             })
             .unwrap();
         registry
-            .register_component::<TestComponent>(ComponentMetadata {
+            .register_component::<TestComponent>(&ComponentMetadata {
                 names: vec!["name2".to_string()],
                 constructor: test_constructor,
                 cast: test_cast,
