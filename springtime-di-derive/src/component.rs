@@ -380,12 +380,12 @@ pub fn register_component_alias(
                     Ok(())
                 }
 
-                fn register() -> springtime_di::component_registry::internal::TraitComponentDefinition {
+                fn register() -> springtime_di::component_registry::internal::ComponentAliasDefinition {
                     use std::any::{TypeId, type_name};
-                    springtime_di::component_registry::internal::TraitComponentDefinition {
-                        trait_type: TypeId::of::<dyn #trait_type #trait_bounds>(),
+                    springtime_di::component_registry::internal::ComponentAliasDefinition {
+                        alias_type: TypeId::of::<dyn #trait_type #trait_bounds>(),
                         target_type: TypeId::of::<#target_type>(),
-                        trait_name: type_name::<dyn #trait_type #trait_bounds>(),
+                        alias_name: type_name::<dyn #trait_type #trait_bounds>(),
                         target_name: type_name::<#target_type>(),
                         condition: #condition,
                         metadata: springtime_di::component_registry::ComponentAliasMetadata {
@@ -396,7 +396,7 @@ pub fn register_component_alias(
                 }
 
                 springtime_di::component_registry::internal::submit! {
-                    springtime_di::component_registry::internal::TraitComponentRegisterer {
+                    springtime_di::component_registry::internal::ComponentAliasRegisterer {
                         register,
                     }
                 };

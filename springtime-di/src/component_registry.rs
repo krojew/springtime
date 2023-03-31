@@ -7,7 +7,7 @@ pub mod conditional;
 use crate::component::{Component, ComponentDowncast, Injectable};
 use crate::component_registry::conditional::{ComponentDefinitionRegistryFacade, ContextFactory};
 use crate::component_registry::internal::{
-    ComponentDefinitionRegisterer, TraitComponentDefinition, TraitComponentRegisterer,
+    ComponentAliasDefinition, ComponentAliasRegisterer, ComponentDefinitionRegisterer,
     TypedComponentDefinition,
 };
 use crate::component_registry::registry::NamedComponentDefinitionMap;
@@ -120,8 +120,8 @@ impl StaticComponentDefinitionRegistry {
                 .map(|registerer| (registerer.register)())
                 .collect_vec();
 
-        let alias_definitions: Vec<TraitComponentDefinition> =
-            inventory::iter::<TraitComponentRegisterer>
+        let alias_definitions: Vec<ComponentAliasDefinition> =
+            inventory::iter::<ComponentAliasRegisterer>
                 .into_iter()
                 .map(|registerer| (registerer.register)())
                 .collect_vec();
@@ -150,7 +150,7 @@ impl StaticComponentDefinitionRegistry {
     fn register_conditional_components<CF: ContextFactory>(
         &mut self,
         component_definitions: &[TypedComponentDefinition],
-        alias_definitions: &[TraitComponentDefinition],
+        alias_definitions: &[ComponentAliasDefinition],
         context_factory: &CF,
     ) -> Result<(), ComponentDefinitionRegistryError> {
         if component_definitions.is_empty() && alias_definitions.is_empty() {
@@ -179,9 +179,9 @@ impl StaticComponentDefinitionRegistry {
                 if let Some(condition) = &definition.condition {
                     if (condition)(context.as_ref(), &definition.metadata) {
                         definition_map.try_register_alias(
-                            definition.trait_type,
+                            definition.alias_type,
                             definition.target_type,
-                            definition.trait_name,
+                            definition.alias_name,
                             definition.target_name,
                             &definition.metadata,
                         )?;
@@ -218,16 +218,16 @@ impl StaticComponentDefinitionRegistry {
 
     fn register_unconditional_aliases(
         &mut self,
-        alias_definitions: &[TraitComponentDefinition],
+        alias_definitions: &[ComponentAliasDefinition],
     ) -> Result<(), ComponentDefinitionRegistryError> {
         for definition in alias_definitions
             .iter()
             .filter(|definition| definition.condition.is_none())
         {
             self.definition_map.try_register_alias(
-                definition.trait_type,
+                definition.alias_type,
                 definition.target_type,
-                definition.trait_name,
+                definition.alias_name,
                 definition.target_name,
                 &definition.metadata,
             )?;
@@ -618,21 +618,21 @@ pub mod internal {
         pub register: fn() -> TypedComponentDefinition,
     }
 
-    pub struct TraitComponentDefinition {
-        pub trait_type: TypeId,
+    pub struct ComponentAliasDefinition {
+        pub alias_type: TypeId,
         pub target_type: TypeId,
-        pub trait_name: &'static str,
+        pub alias_name: &'static str,
         pub target_name: &'static str,
         pub condition: Option<ComponentAliasCondition>,
         pub metadata: ComponentAliasMetadata,
     }
 
-    pub struct TraitComponentRegisterer {
-        pub register: fn() -> TraitComponentDefinition,
+    pub struct ComponentAliasRegisterer {
+        pub register: fn() -> ComponentAliasDefinition,
     }
 
     collect!(ComponentDefinitionRegisterer);
-    collect!(TraitComponentRegisterer);
+    collect!(ComponentAliasRegisterer);
 }
 
 #[cfg(test)]
