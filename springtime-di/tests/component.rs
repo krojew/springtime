@@ -29,7 +29,9 @@ mod component_derive_test {
     #[component_alias]
     impl TestTrait2 for TestDependency {}
 
-    #[component_alias]
+    #[component_alias(
+        condition = "springtime_di::component_registry::conditional::registered_component::<TestDependency>"
+    )]
     impl TestTrait3 for TestDependency {}
 
     #[derive(Component)]

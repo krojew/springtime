@@ -1,10 +1,14 @@
 //! Conditional component definition registration support.
 
+use crate::component::Injectable;
 use crate::component_registry::{ComponentAliasMetadata, ComponentMetadata};
+#[cfg(test)]
+use mockall::automock;
 use std::any::TypeId;
 
 /// A read-only facade of a [ComponentDefinitionRegistry](super::ComponentDefinitionRegistry) safe
 /// to use in registration conditions.
+#[cfg_attr(test, automock)]
 pub trait ComponentDefinitionRegistryFacade {
     /// Checks if given type is present in this registry.
     fn is_registered(&self, target: TypeId) -> bool;
@@ -28,7 +32,8 @@ pub trait ContextFactory {
     ) -> Box<dyn Context + 'a>;
 }
 
-/// Metadata for the entity which is currently evaluated for registration.  
+/// Metadata for the entity which is currently evaluated for registration.
+#[derive(Clone, Debug, Copy)]
 pub enum ConditionMetadata<'a> {
     Component(&'a ComponentMetadata),
     Alias(&'a ComponentAliasMetadata),
@@ -57,5 +62,78 @@ impl ContextFactory for SimpleContextFactory {
         registry: &'a dyn ComponentDefinitionRegistryFacade,
     ) -> Box<dyn Context + 'a> {
         Box::new(SimpleContext { registry })
+    }
+}
+
+/// Simple condition returning true if the given type is already registered.
+pub fn registered_component<T: Injectable>(
+    context: &dyn Context,
+    _metadata: ConditionMetadata,
+) -> bool {
+    context.registry().is_registered(TypeId::of::<T>())
+}
+
+/// Simple condition returning true if the given type is not yet registered.
+pub fn unregistered_component<T: Injectable>(
+    context: &dyn Context,
+    metadata: ConditionMetadata,
+) -> bool {
+    !registered_component::<T>(context, metadata)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::component::Injectable;
+    use crate::component_registry::conditional::{
+        registered_component, unregistered_component, ConditionMetadata,
+        MockComponentDefinitionRegistryFacade, SimpleContext,
+    };
+    use crate::component_registry::ComponentAliasMetadata;
+    use crate::instance_provider::ComponentInstanceAnyPtr;
+    use mockall::predicate::*;
+    use mockall::Sequence;
+    use std::any::TypeId;
+
+    struct TestComponent;
+
+    impl Injectable for TestComponent {}
+
+    unsafe fn test_cast(
+        instance: ComponentInstanceAnyPtr,
+        _result: *mut (),
+    ) -> Result<(), ComponentInstanceAnyPtr> {
+        Err(instance)
+    }
+
+    #[test]
+    fn should_check_for_component_existence() {
+        let mut seq = Sequence::new();
+
+        let mut registry = MockComponentDefinitionRegistryFacade::new();
+        registry
+            .expect_is_registered()
+            .with(eq(TypeId::of::<TestComponent>()))
+            .times(2)
+            .in_sequence(&mut seq)
+            .return_const(true);
+        registry
+            .expect_is_registered()
+            .with(eq(TypeId::of::<TestComponent>()))
+            .times(2)
+            .in_sequence(&mut seq)
+            .return_const(false);
+
+        let context = SimpleContext {
+            registry: &registry,
+        };
+        let metadata = ConditionMetadata::Alias(&ComponentAliasMetadata {
+            is_primary: false,
+            cast: test_cast,
+        });
+
+        assert!(registered_component::<TestComponent>(&context, metadata));
+        assert!(!unregistered_component::<TestComponent>(&context, metadata));
+        assert!(!registered_component::<TestComponent>(&context, metadata));
+        assert!(unregistered_component::<TestComponent>(&context, metadata));
     }
 }
