@@ -61,7 +61,7 @@ pub struct ComponentAliasMetadata {
 }
 
 /// A registry of component definitions which can be used when requesting instances via a
-/// [ComponentInstanceProvider](ComponentInstanceProvider).
+/// [ComponentInstanceProvider].
 pub trait ComponentDefinitionRegistry {
     /// Adds a new definition for a given type. Note: handling of duplicate component names is
     /// registry-dependent.
@@ -85,6 +85,12 @@ pub trait ComponentDefinitionRegistry {
 
     /// Returns a definition with given name.
     fn component_by_name(&self, name: &str) -> Option<ComponentDefinition>;
+
+    /// Checks if given type is present in this registry.
+    fn is_registered<T: Injectable>(&self) -> bool;
+
+    /// Checks if there's a definition with given name.
+    fn is_name_registered(&self, name: &str) -> bool;
 }
 
 /// Registry of component definitions initialized from statically registered definitions.
@@ -162,6 +168,16 @@ impl ComponentDefinitionRegistry for StaticComponentDefinitionRegistry {
     #[inline]
     fn component_by_name(&self, name: &str) -> Option<ComponentDefinition> {
         self.definitions.component_by_name(name)
+    }
+
+    #[inline]
+    fn is_registered<T: Injectable>(&self) -> bool {
+        self.definitions.is_registered(TypeId::of::<T>())
+    }
+
+    #[inline]
+    fn is_name_registered(&self, name: &str) -> bool {
+        self.definitions.is_name_registered(name)
     }
 }
 
@@ -298,6 +314,16 @@ mod registry {
 
             Ok(())
         }
+
+        #[inline]
+        pub(super) fn is_registered(&self, target: TypeId) -> bool {
+            self.definitions.contains_key(&target)
+        }
+
+        #[inline]
+        pub(super) fn is_name_registered(&self, name: &str) -> bool {
+            self.names.contains_key(name)
+        }
     }
 
     #[cfg(test)]
@@ -351,6 +377,8 @@ mod registry {
                 registry.component_by_name("name").unwrap().names,
                 definition.names
             );
+            assert!(registry.is_registered(id));
+            assert!(registry.is_name_registered("name"));
         }
 
         #[test]
