@@ -255,6 +255,10 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
             .and_then(|attributes| attributes.condition.clone())
             .map(|condition| quote!(Some(#condition)))
             .unwrap_or_else(|| quote!(None));
+        let priority = attributes
+            .as_ref()
+            .map(|attributes| attributes.priority)
+            .unwrap_or(0);
 
         Ok(quote! {
             #[automatically_derived]
@@ -302,6 +306,7 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
                         target: TypeId::of::<#ident>(),
                         target_name: type_name::<#ident>(),
                         condition: #condition,
+                        priority: #priority,
                         metadata: springtime_di::component_registry::ComponentMetadata {
                             names: vec![#(#names.to_string()),*],
                             constructor,
@@ -351,6 +356,7 @@ pub fn register_component_alias(
             .as_ref()
             .map(|condition| quote!(Some(#condition)))
             .unwrap_or_else(|| quote!(None));
+        let priority = args.priority;
 
         #[cfg(feature = "threadsafe")]
         let trait_bounds = quote!( + Sync + Send);
@@ -388,6 +394,7 @@ pub fn register_component_alias(
                         alias_name: type_name::<dyn #trait_type #trait_bounds>(),
                         target_name: type_name::<#target_type>(),
                         condition: #condition,
+                        priority: #priority,
                         metadata: springtime_di::component_registry::ComponentAliasMetadata {
                             is_primary: #is_primary,
                             cast,

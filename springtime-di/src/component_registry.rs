@@ -143,8 +143,8 @@ impl StaticComponentDefinitionRegistry {
         };
 
         registry.register_conditional_components(
-            &component_definitions,
-            &alias_definitions,
+            component_definitions,
+            alias_definitions.clone(),
             context_factory,
         )?;
 
@@ -153,56 +153,61 @@ impl StaticComponentDefinitionRegistry {
         Ok(registry)
     }
 
+    //noinspection DuplicatedCode
     fn register_conditional_components<CF: ContextFactory>(
         &mut self,
-        component_definitions: &[TypedComponentDefinition],
-        alias_definitions: &[ComponentAliasDefinition],
+        component_definitions: Vec<TypedComponentDefinition>,
+        alias_definitions: Vec<ComponentAliasDefinition>,
         context_factory: &CF,
     ) -> Result<(), ComponentDefinitionRegistryError> {
         if component_definitions.is_empty() && alias_definitions.is_empty() {
             return Ok(());
         }
 
-        let mut definition_map = self.definition_map.clone();
-
+        for (definition, condition) in component_definitions
+            .iter()
+            .filter_map(|definition| {
+                definition
+                    .condition
+                    .map(|condition| (definition, condition))
+            })
+            .sorted_by_key(|(definition, _)| -definition.priority)
         {
-            let context = context_factory.create_context(self);
-
-            for definition in component_definitions {
-                if let Some(condition) = &definition.condition {
-                    if (condition)(
-                        context.as_ref(),
-                        ConditionMetadata::Component(&definition.metadata),
-                    ) {
-                        definition_map.try_register_component(
-                            definition.target,
-                            definition.target_name,
-                            &definition.metadata,
-                            self.allow_definition_overriding,
-                        )?;
-                    }
-                }
-            }
-
-            for definition in alias_definitions {
-                if let Some(condition) = &definition.condition {
-                    if (condition)(
-                        context.as_ref(),
-                        ConditionMetadata::Alias(&definition.metadata),
-                    ) {
-                        definition_map.try_register_alias(
-                            definition.alias_type,
-                            definition.target_type,
-                            definition.alias_name,
-                            definition.target_name,
-                            &definition.metadata,
-                        )?;
-                    }
-                }
+            if (condition)(
+                context_factory.create_context(self).as_ref(),
+                ConditionMetadata::Component(&definition.metadata),
+            ) {
+                self.definition_map.try_register_component(
+                    definition.target,
+                    definition.target_name,
+                    &definition.metadata,
+                    self.allow_definition_overriding,
+                )?;
             }
         }
 
-        self.definition_map = definition_map;
+        for (definition, condition) in alias_definitions
+            .iter()
+            .filter_map(|definition| {
+                definition
+                    .condition
+                    .map(|condition| (definition, condition))
+            })
+            .sorted_by_key(|(definition, _)| -definition.priority)
+        {
+            if (condition)(
+                context_factory.create_context(self).as_ref(),
+                ConditionMetadata::Alias(&definition.metadata),
+            ) {
+                self.definition_map.try_register_alias(
+                    definition.alias_type,
+                    definition.target_type,
+                    definition.alias_name,
+                    definition.target_name,
+                    &definition.metadata,
+                )?;
+            }
+        }
 
         Ok(())
     }
@@ -629,10 +634,12 @@ pub mod internal {
     pub use inventory::submit;
     use std::any::TypeId;
 
+    #[derive(Clone)]
     pub struct TypedComponentDefinition {
         pub target: TypeId,
         pub target_name: &'static str,
         pub condition: Option<ComponentCondition>,
+        pub priority: i8,
         pub metadata: ComponentMetadata,
     }
 
@@ -640,12 +647,14 @@ pub mod internal {
         pub register: fn() -> TypedComponentDefinition,
     }
 
+    #[derive(Clone)]
     pub struct ComponentAliasDefinition {
         pub alias_type: TypeId,
         pub target_type: TypeId,
         pub alias_name: &'static str,
         pub target_name: &'static str,
         pub condition: Option<ComponentCondition>,
+        pub priority: i8,
         pub metadata: ComponentAliasMetadata,
     }
 

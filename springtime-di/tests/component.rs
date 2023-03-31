@@ -71,8 +71,17 @@ mod component_derive_test {
     #[component_alias]
     impl TestTrait1 for TestComponent2 {}
 
-    #[component_alias(primary, condition = "dummy_alias_condition")]
+    #[component_alias(primary, condition = "dummy_alias_condition", priority = 100)]
     impl TestTrait2 for TestComponent2 {}
+
+    #[derive(Component)]
+    struct TestComponent3;
+
+    #[component_alias(
+        primary,
+        condition = "springtime_di::component_registry::conditional::unregistered_component::<TestComponent2>"
+    )]
+    impl TestTrait2 for TestComponent3 {}
 
     fn dummy_expr() -> i8 {
         -1

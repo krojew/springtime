@@ -49,6 +49,9 @@
 //! one
 //! * `condition = "expr"` - call `expr()` and evaluate if given component should be registered; see
 //! [crate::component_registry::conditional]
+//! * `priority = number` - if a condition is present, use the given numerical priority to establish
+//! the order of registration in relation to other components with a condition (i8; higher is first;
+//! default is 0)
 //!
 //! ### Supported `#[component]` field configuration
 //!
@@ -91,6 +94,9 @@
 //! components are available
 //! * `condition = "expr"` - call `expr()` and evaluate if given component should be registered; see
 //! [crate::component_registry::conditional]
+//! * `priority = number` - if a condition is present, use the given numerical priority to establish
+//! the order of registration in relation to other components with a condition (i8; higher is first;
+//! default is 0)
 
 use crate::error::ComponentInstanceProviderError;
 use crate::instance_provider::{

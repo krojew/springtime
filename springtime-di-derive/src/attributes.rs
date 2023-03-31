@@ -1,6 +1,6 @@
 use syn::parse::{Parse, ParseStream};
 use syn::spanned::Spanned;
-use syn::{Attribute, Error, Expr, ExprArray, ExprLit, ExprPath, Lit, LitStr, Token};
+use syn::{Attribute, Error, Expr, ExprArray, ExprLit, ExprPath, Lit, LitInt, LitStr, Token};
 
 pub enum DefaultDefinition {
     Default,
@@ -58,6 +58,7 @@ impl TryFrom<&Attribute> for FieldAttributes {
 pub struct ComponentAttributes {
     pub names: Option<ExprArray>,
     pub condition: Option<ExprPath>,
+    pub priority: i8,
 }
 
 impl TryFrom<&Attribute> for ComponentAttributes {
@@ -86,6 +87,14 @@ impl TryFrom<&Attribute> for ComponentAttributes {
                 {
                     result.condition = Some(path.parse()?);
                 }
+            } else if meta.path.is_ident("priority") {
+                if let Expr::Lit(ExprLit {
+                    lit: Lit::Int(priority),
+                    ..
+                }) = meta.value()?.parse::<Expr>()?
+                {
+                    result.priority = priority.base10_parse()?;
+                }
             }
 
             Ok(())
@@ -99,6 +108,7 @@ impl TryFrom<&Attribute> for ComponentAttributes {
 pub struct ComponentAliasAttributes {
     pub is_primary: bool,
     pub condition: Option<ExprPath>,
+    pub priority: i8,
 }
 
 impl Parse for ComponentAliasAttributes {
@@ -114,7 +124,17 @@ impl Parse for ComponentAliasAttributes {
                     return Err(Error::new(input.span(), "Condition is already defined!"));
                 }
 
-                result.condition = Some(input.parse::<StrArg<kw::condition>>()?.value.parse()?);
+                result.condition = Some(
+                    input
+                        .parse::<LitArg<kw::condition, LitStr>>()?
+                        .value
+                        .parse()?,
+                );
+            } else if lookahead.peek(kw::priority) {
+                result.priority = input
+                    .parse::<LitArg<kw::priority, LitInt>>()?
+                    .value
+                    .base10_parse()?;
             } else if lookahead.peek(Token![,]) {
                 let _ = input.parse::<Token![,]>()?;
             } else {
@@ -126,12 +146,12 @@ impl Parse for ComponentAliasAttributes {
     }
 }
 
-struct StrArg<T> {
-    value: LitStr,
+struct LitArg<T, A> {
+    value: A,
     _p: std::marker::PhantomData<T>,
 }
 
-impl<T: Parse> Parse for StrArg<T> {
+impl<T: Parse, A: Parse> Parse for LitArg<T, A> {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let _ = input.parse::<T>()?;
         let _ = input.parse::<Token![=]>()?;
@@ -148,4 +168,5 @@ mod kw {
 
     custom_keyword!(primary);
     custom_keyword!(condition);
+    custom_keyword!(priority);
 }
