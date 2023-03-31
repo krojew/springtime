@@ -16,6 +16,7 @@ use crate::component_registry::registry::NamedComponentDefinitionMap;
 use crate::error::{ComponentDefinitionRegistryError, ComponentInstanceProviderError};
 use crate::instance_provider::{CastFunction, ComponentInstanceAnyPtr, ComponentInstanceProvider};
 use derivative::Derivative;
+use fxhash::FxHashMap;
 use itertools::Itertools;
 use std::any::{type_name, TypeId};
 
@@ -102,6 +103,9 @@ pub trait ComponentDefinitionRegistry {
 
     /// Checks if there's a definition with given name.
     fn is_name_registered(&self, name: &str) -> bool;
+
+    /// Returns a copy of the whole registry as a map.
+    fn all_definitions(&self) -> FxHashMap<TypeId, Vec<ComponentDefinition>>;
 }
 
 /// Registry of component definitions initialized from statically registered definitions.
@@ -291,6 +295,11 @@ impl ComponentDefinitionRegistry for StaticComponentDefinitionRegistry {
     fn is_name_registered(&self, name: &str) -> bool {
         <Self as ComponentDefinitionRegistryFacade>::is_name_registered(self, name)
     }
+
+    #[inline]
+    fn all_definitions(&self) -> FxHashMap<TypeId, Vec<ComponentDefinition>> {
+        self.definition_map.all_definitions()
+    }
 }
 
 impl ComponentDefinitionRegistryFacade for StaticComponentDefinitionRegistry {
@@ -450,6 +459,11 @@ mod registry {
         #[inline]
         pub(super) fn is_name_registered(&self, name: &str) -> bool {
             self.names.contains_key(name)
+        }
+
+        #[inline]
+        pub(super) fn all_definitions(&self) -> FxHashMap<TypeId, Vec<ComponentDefinition>> {
+            self.definitions.clone()
         }
     }
 
