@@ -1,3 +1,6 @@
+//! The core functionality of creating and managing [Component](crate::component::Component)
+//! instances.
+
 use crate::component::Injectable;
 use crate::error::ComponentInstanceProviderError;
 use itertools::Itertools;

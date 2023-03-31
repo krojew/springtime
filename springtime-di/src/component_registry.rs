@@ -1,3 +1,7 @@
+//! Functionality related to registering definitions of components. [ComponentInstanceProvider]s
+//! should create [Component] instances based on those definitions, which can be registered
+//! automatically or manually.
+
 use crate::component::{Component, ComponentDowncast, Injectable};
 use crate::component_registry::internal::{
     ComponentDefinitionRegisterer, TraitComponentRegisterer,
