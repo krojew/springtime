@@ -110,7 +110,7 @@ mod component_derive_test {
 
     impl ComponentInstanceProvider for TestDependencyInstanceProvider {
         fn primary_instance(
-            &self,
+            &mut self,
             type_id: TypeId,
         ) -> Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError>
         {
@@ -141,7 +141,7 @@ mod component_derive_test {
         }
 
         fn instances(
-            &self,
+            &mut self,
             type_id: TypeId,
         ) -> Result<(Vec<ComponentInstanceAnyPtr>, CastFunction), ComponentInstanceProviderError>
         {
@@ -150,7 +150,7 @@ mod component_derive_test {
         }
 
         fn instance_by_name(
-            &self,
+            &mut self,
             type_id: TypeId,
             name: &str,
         ) -> Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError>
@@ -167,9 +167,9 @@ mod component_derive_test {
 
     #[test]
     fn should_directly_create_with_explicit_dependency() {
-        let instance_provider = TestDependencyInstanceProvider;
-        assert!(TestComponent1::create(&instance_provider).is_ok());
-        assert!(TestComponent2::create(&instance_provider).is_ok());
+        let mut instance_provider = TestDependencyInstanceProvider;
+        assert!(TestComponent1::create(&mut instance_provider).is_ok());
+        assert!(TestComponent2::create(&mut instance_provider).is_ok());
     }
 
     #[test]

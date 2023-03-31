@@ -270,7 +270,7 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
 
             #[automatically_derived]
             impl springtime_di::component::Component for #ident {
-                fn create(instance_provider: &dyn springtime_di::instance_provider::ComponentInstanceProvider) -> Result<Self, springtime_di::error::ComponentInstanceProviderError> {
+                fn create(instance_provider: &mut dyn springtime_di::instance_provider::ComponentInstanceProvider) -> Result<Self, springtime_di::error::ComponentInstanceProviderError> {
                     use springtime_di::instance_provider::TypedComponentInstanceProvider;
                     use std::ops::Deref;
                     Ok(#generation)
@@ -278,7 +278,7 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
             }
 
             const _: () = {
-                fn constructor(instance_provider: &dyn springtime_di::instance_provider::ComponentInstanceProvider) -> Result<springtime_di::instance_provider::ComponentInstanceAnyPtr, springtime_di::error::ComponentInstanceProviderError> {
+                fn constructor(instance_provider: &mut dyn springtime_di::instance_provider::ComponentInstanceProvider) -> Result<springtime_di::instance_provider::ComponentInstanceAnyPtr, springtime_di::error::ComponentInstanceProviderError> {
                     use springtime_di::component::Component;
                     #ident::create(instance_provider).map(|p| springtime_di::instance_provider::ComponentInstancePtr::new(p) as springtime_di::instance_provider::ComponentInstanceAnyPtr)
                 }

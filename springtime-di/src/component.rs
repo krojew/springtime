@@ -100,7 +100,7 @@ use crate::instance_provider::{
 pub trait Component: ComponentDowncast<Self> + Sized {
     /// Creates an instance of this component using dependencies from given [ComponentInstanceProvider].
     fn create(
-        instance_provider: &dyn ComponentInstanceProvider,
+        instance_provider: &mut dyn ComponentInstanceProvider,
     ) -> Result<Self, ComponentInstanceProviderError>;
 }
 

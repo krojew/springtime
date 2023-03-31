@@ -24,7 +24,7 @@ pub struct ComponentDefinition {
     /// Constructor method for type-erased instances.
     #[derivative(Debug = "ignore")]
     pub constructor: fn(
-        instance_provider: &dyn ComponentInstanceProvider,
+        instance_provider: &mut dyn ComponentInstanceProvider,
     ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError>,
 
     /// Cast function associated for given type. Please see the documentation for [CastFunction] for
@@ -42,7 +42,7 @@ pub struct ComponentMetadata {
 
     #[derivative(Debug = "ignore")]
     pub constructor: fn(
-        instance_provider: &dyn ComponentInstanceProvider,
+        instance_provider: &mut dyn ComponentInstanceProvider,
     ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError>,
 
     #[derivative(Debug = "ignore")]
@@ -319,7 +319,7 @@ mod registry {
 
         fn create_metadata() -> (ComponentMetadata, TypeId) {
             fn constructor(
-                _instance_provider: &dyn ComponentInstanceProvider,
+                _instance_provider: &mut dyn ComponentInstanceProvider,
             ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
                 Ok(ComponentInstancePtr::new(0) as ComponentInstanceAnyPtr)
             }
@@ -512,7 +512,7 @@ mod tests {
 
     impl Component for TestComponent {
         fn create(
-            _instance_provider: &dyn ComponentInstanceProvider,
+            _instance_provider: &mut dyn ComponentInstanceProvider,
         ) -> Result<Self, ComponentInstanceProviderError>
         where
             Self: Sized,
@@ -522,7 +522,7 @@ mod tests {
     }
 
     fn test_constructor(
-        instance_provider: &dyn ComponentInstanceProvider,
+        instance_provider: &mut dyn ComponentInstanceProvider,
     ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
         TestComponent::create(instance_provider)
             .map(|p| ComponentInstancePtr::new(p) as ComponentInstanceAnyPtr)

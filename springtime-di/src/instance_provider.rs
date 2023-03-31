@@ -35,7 +35,7 @@ pub trait ComponentInstanceProvider {
     /// Tries to return a primary instance of a given component. A primary component is either the
     /// only one registered or one marked as primary.
     fn primary_instance(
-        &self,
+        &mut self,
         type_id: TypeId,
     ) -> Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError>;
 
@@ -43,13 +43,13 @@ pub trait ComponentInstanceProvider {
     /// error. Be aware this might be an expensive operation if the number of registered components
     /// is high.
     fn instances(
-        &self,
+        &mut self,
         type_id: TypeId,
     ) -> Result<(Vec<ComponentInstanceAnyPtr>, CastFunction), ComponentInstanceProviderError>;
 
     /// Tries to return an instance with the given name.
     fn instance_by_name(
-        &self,
+        &mut self,
         type_id: TypeId,
         name: &str,
     ) -> Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError>;
@@ -59,37 +59,37 @@ pub trait ComponentInstanceProvider {
 pub trait TypedComponentInstanceProvider {
     /// Typesafe version of [ComponentInstanceProvider::primary_instance].
     fn primary_instance_typed<T: Injectable + ?Sized>(
-        &self,
+        &mut self,
     ) -> Result<ComponentInstancePtr<T>, ComponentInstanceProviderError>;
 
     /// Tries to get an instance like [TypedComponentInstanceProvider::primary_instance_typed] does,
     /// but returns `None` on missing instance.
     fn primary_instance_option<T: Injectable + ?Sized>(
-        &self,
+        &mut self,
     ) -> Result<Option<ComponentInstancePtr<T>>, ComponentInstanceProviderError>;
 
     /// Typesafe version of [ComponentInstanceProvider::instances].
     fn instances_typed<T: Injectable + ?Sized>(
-        &self,
+        &mut self,
     ) -> Result<Vec<ComponentInstancePtr<T>>, ComponentInstanceProviderError>;
 
     /// Typesafe version of [ComponentInstanceProvider::instance_by_name].
     fn instance_by_name_typed<T: Injectable + ?Sized>(
-        &self,
+        &mut self,
         name: &str,
     ) -> Result<ComponentInstancePtr<T>, ComponentInstanceProviderError>;
 
     /// Tries to get an instance like [TypedComponentInstanceProvider::instance_by_name_typed] does,
     /// but returns `None` on missing instance.
     fn instance_by_name_option<T: Injectable + ?Sized>(
-        &self,
+        &mut self,
         name: &str,
     ) -> Result<Option<ComponentInstancePtr<T>>, ComponentInstanceProviderError>;
 }
 
 impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for CIP {
     fn primary_instance_typed<T: Injectable + ?Sized>(
-        &self,
+        &mut self,
     ) -> Result<ComponentInstancePtr<T>, ComponentInstanceProviderError> {
         let type_id = TypeId::of::<T>();
         self.primary_instance(type_id)
@@ -97,7 +97,7 @@ impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for
     }
 
     fn primary_instance_option<T: Injectable + ?Sized>(
-        &self,
+        &mut self,
     ) -> Result<Option<ComponentInstancePtr<T>>, ComponentInstanceProviderError> {
         match self.primary_instance_typed::<T>() {
             Ok(ptr) => Ok(Some(ptr)),
@@ -107,7 +107,7 @@ impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for
     }
 
     fn instances_typed<T: Injectable + ?Sized>(
-        &self,
+        &mut self,
     ) -> Result<Vec<ComponentInstancePtr<T>>, ComponentInstanceProviderError> {
         let type_id = TypeId::of::<T>();
         self.instances(type_id).and_then(|(instances, cast)| {
@@ -119,7 +119,7 @@ impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for
     }
 
     fn instance_by_name_typed<T: Injectable + ?Sized>(
-        &self,
+        &mut self,
         name: &str,
     ) -> Result<ComponentInstancePtr<T>, ComponentInstanceProviderError> {
         let type_id = TypeId::of::<T>();
@@ -128,7 +128,7 @@ impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for
     }
 
     fn instance_by_name_option<T: Injectable + ?Sized>(
-        &self,
+        &mut self,
         name: &str,
     ) -> Result<Option<ComponentInstancePtr<T>>, ComponentInstanceProviderError> {
         match self.instance_by_name_typed::<T>(name) {
