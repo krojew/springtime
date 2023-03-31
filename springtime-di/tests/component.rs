@@ -1,10 +1,11 @@
 #[cfg(feature = "derive")]
 mod component_derive_test {
     use springtime_di::component::{Component, ComponentDowncast};
-    use springtime_di::component_registry::conditional::{Context, SimpleContextFactory};
+    use springtime_di::component_registry::conditional::{
+        ConditionMetadata, Context, SimpleContextFactory,
+    };
     use springtime_di::component_registry::{
-        ComponentAliasMetadata, ComponentDefinitionRegistry, ComponentMetadata,
-        StaticComponentDefinitionRegistry,
+        ComponentDefinitionRegistry, StaticComponentDefinitionRegistry,
     };
     use springtime_di::error::ComponentInstanceProviderError;
     use springtime_di::instance_provider::{
@@ -75,11 +76,11 @@ mod component_derive_test {
         -1
     }
 
-    fn dummy_component_condition(_context: &dyn Context, _metadata: &ComponentMetadata) -> bool {
+    fn dummy_component_condition(_context: &dyn Context, _metadata: ConditionMetadata) -> bool {
         true
     }
 
-    fn dummy_alias_condition(_context: &dyn Context, _metadata: &ComponentAliasMetadata) -> bool {
+    fn dummy_alias_condition(_context: &dyn Context, _metadata: ConditionMetadata) -> bool {
         true
     }
 
@@ -179,7 +180,7 @@ mod component_derive_test {
     #[component(condition = "disabled_condition")]
     struct DisabledComponent;
 
-    fn disabled_condition(_context: &dyn Context, _metadata: &ComponentMetadata) -> bool {
+    fn disabled_condition(_context: &dyn Context, _metadata: ConditionMetadata) -> bool {
         false
     }
 

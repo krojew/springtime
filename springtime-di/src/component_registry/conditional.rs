@@ -28,12 +28,14 @@ pub trait ContextFactory {
     ) -> Box<dyn Context + 'a>;
 }
 
-/// Registration condition which should pass to let given [ComponentMetadata] be registered.
-pub type ComponentCondition = fn(context: &dyn Context, metadata: &ComponentMetadata) -> bool;
+/// Metadata for the entity which is currently evaluated for registration.  
+pub enum ConditionMetadata<'a> {
+    Component(&'a ComponentMetadata),
+    Alias(&'a ComponentAliasMetadata),
+}
 
-/// Registration condition which should pass to let given [ComponentAliasMetadata] be registered.
-pub type ComponentAliasCondition =
-    fn(context: &dyn Context, metadata: &ComponentAliasMetadata) -> bool;
+/// Registration condition which should pass to let given [ConditionMetadata] be registered.
+pub type ComponentCondition = fn(context: &dyn Context, metadata: ConditionMetadata) -> bool;
 
 struct SimpleContext<'a> {
     registry: &'a dyn ComponentDefinitionRegistryFacade,

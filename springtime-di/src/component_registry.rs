@@ -5,7 +5,9 @@
 pub mod conditional;
 
 use crate::component::{Component, ComponentDowncast, Injectable};
-use crate::component_registry::conditional::{ComponentDefinitionRegistryFacade, ContextFactory};
+use crate::component_registry::conditional::{
+    ComponentDefinitionRegistryFacade, ConditionMetadata, ContextFactory,
+};
 use crate::component_registry::internal::{
     ComponentAliasDefinition, ComponentAliasRegisterer, ComponentDefinitionRegisterer,
     TypedComponentDefinition,
@@ -164,7 +166,10 @@ impl StaticComponentDefinitionRegistry {
 
             for definition in component_definitions {
                 if let Some(condition) = &definition.condition {
-                    if (condition)(context.as_ref(), &definition.metadata) {
+                    if (condition)(
+                        context.as_ref(),
+                        ConditionMetadata::Component(&definition.metadata),
+                    ) {
                         definition_map.try_register_component(
                             definition.target,
                             definition.target_name,
@@ -177,7 +182,10 @@ impl StaticComponentDefinitionRegistry {
 
             for definition in alias_definitions {
                 if let Some(condition) = &definition.condition {
-                    if (condition)(context.as_ref(), &definition.metadata) {
+                    if (condition)(
+                        context.as_ref(),
+                        ConditionMetadata::Alias(&definition.metadata),
+                    ) {
                         definition_map.try_register_alias(
                             definition.alias_type,
                             definition.target_type,
@@ -601,7 +609,7 @@ mod registry {
 
 #[doc(hidden)]
 pub mod internal {
-    use crate::component_registry::conditional::{ComponentAliasCondition, ComponentCondition};
+    use crate::component_registry::conditional::ComponentCondition;
     use crate::component_registry::{ComponentAliasMetadata, ComponentMetadata};
     use inventory::collect;
     pub use inventory::submit;
@@ -623,7 +631,7 @@ pub mod internal {
         pub target_type: TypeId,
         pub alias_name: &'static str,
         pub target_name: &'static str,
-        pub condition: Option<ComponentAliasCondition>,
+        pub condition: Option<ComponentCondition>,
         pub metadata: ComponentAliasMetadata,
     }
 
