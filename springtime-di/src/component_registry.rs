@@ -480,12 +480,11 @@ mod registry {
         use crate::instance_provider::{
             ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
         };
-        use std::any::TypeId;
+        use std::any::{Any, TypeId};
 
         fn cast(
             instance: ComponentInstanceAnyPtr,
-            _result: *mut (),
-        ) -> Result<(), ComponentInstanceAnyPtr> {
+        ) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr> {
             Err(instance)
         }
 
@@ -681,7 +680,7 @@ mod tests {
     use crate::instance_provider::{
         ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
     };
-    use std::any::TypeId;
+    use std::any::{Any, TypeId};
 
     struct TestComponent;
 
@@ -713,14 +712,10 @@ mod tests {
             .map(|p| ComponentInstancePtr::new(p) as ComponentInstanceAnyPtr)
     }
 
-    unsafe fn test_cast(
+    fn test_cast(
         instance: ComponentInstanceAnyPtr,
-        result: *mut (),
-    ) -> Result<(), ComponentInstanceAnyPtr> {
-        let p = TestComponent::downcast(instance)?;
-        let result = &mut *(result as *mut Option<ComponentInstancePtr<TestComponent>>);
-        *result = Some(p);
-        Ok(())
+    ) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr> {
+        TestComponent::downcast(instance).map(|p| Box::new(p) as Box<dyn Any>)
     }
 
     #[test]

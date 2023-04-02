@@ -12,7 +12,7 @@ mod component_derive_test {
         CastFunction, ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
     };
     use springtime_di::{component_alias, injectable, Component};
-    use std::any::TypeId;
+    use std::any::{Any, TypeId};
 
     #[injectable]
     trait TestTrait1 {}
@@ -95,37 +95,25 @@ mod component_derive_test {
         true
     }
 
-    unsafe fn cast_dependency(
+    fn cast_dependency(
         instance: ComponentInstanceAnyPtr,
-        result: *mut (),
-    ) -> Result<(), ComponentInstanceAnyPtr> {
-        let p = TestDependency::downcast(instance)?;
-        let result = &mut *(result as *mut Option<ComponentInstancePtr<TestDependency>>);
-        result.replace(p);
-        Ok(())
+    ) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr> {
+        TestDependency::downcast(instance).map(|p| Box::new(p) as Box<dyn Any>)
     }
 
-    unsafe fn cast_trait(
+    fn cast_trait(
         instance: ComponentInstanceAnyPtr,
-        result: *mut (),
-    ) -> Result<(), ComponentInstanceAnyPtr> {
+    ) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr> {
         #[cfg(feature = "threadsafe")]
         {
-            let p = <dyn TestTrait3 + Sync + Send as ComponentDowncast<TestDependency>>::downcast(
-                instance,
-            )?;
-            let result =
-                &mut *(result as *mut Option<ComponentInstancePtr<dyn TestTrait3 + Sync + Send>>);
-            result.replace(p);
+            <dyn TestTrait3 + Sync + Send as ComponentDowncast<TestDependency>>::downcast(instance)
+                .map(|p| Box::new(p) as Box<dyn Any>)
         }
         #[cfg(not(feature = "threadsafe"))]
         {
-            let p = <dyn TestTrait3 as ComponentDowncast<TestDependency>>::downcast(instance)?;
-            let result = &mut *(result as *mut Option<ComponentInstancePtr<dyn TestTrait3>>);
-            result.replace(p);
+            <dyn TestTrait3 as ComponentDowncast<TestDependency>>::downcast(instance)
+                .map(|p| Box::new(p) as Box<dyn Any>)
         }
-
-        Ok(())
     }
 
     struct TestDependencyInstanceProvider;

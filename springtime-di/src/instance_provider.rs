@@ -23,14 +23,11 @@ pub type ComponentInstanceAnyPtr = ComponentInstancePtr<dyn Any + 'static>;
 pub type ComponentInstanceAnyPtr = ComponentInstancePtr<dyn Any + Send + Sync + 'static>;
 
 /// (Usually generated) cast function which consumes given type-erased instance pointer and casts it
-/// to the desired [ComponentInstancePtr<T>]. The result is then stored in type-erased mutable
-/// pointer to `Option<ComponentInstancePtr<T>>`.
-///
-/// *Note: this contract cannot be broken, since other code can unsafely depend on it!*
-pub type CastFunction = unsafe fn(
-    instance: ComponentInstanceAnyPtr,
-    result: *mut (),
-) -> Result<(), ComponentInstanceAnyPtr>;
+/// to the desired [ComponentInstancePtr<T>]. The result is then returned as type-erased `Box` which
+/// is then converted back to [ComponentInstancePtr<T>]. Such shenanigans are needed to be able to
+/// convert between two `dyn Traits`.
+pub type CastFunction =
+    fn(instance: ComponentInstanceAnyPtr) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr>;
 
 /// Generic provider for component instances.
 #[cfg_attr(test, automock)]
@@ -148,14 +145,13 @@ fn cast_instance<T: Injectable + ?Sized>(
     type_id: TypeId,
 ) -> Result<ComponentInstancePtr<T>, ComponentInstanceProviderError> {
     debug_assert_eq!(type_id, TypeId::of::<T>());
-
-    let mut result: Option<ComponentInstancePtr<T>> = None;
-    unsafe { cast(instance, &mut result as *mut _ as *mut ()) }
-        .map_err(|_| ComponentInstanceProviderError::IncompatibleComponent(type_id))?;
-
-    result.ok_or(ComponentInstanceProviderError::IncompatibleComponent(
-        type_id,
-    ))
+    cast(instance)
+        .map_err(|_| ComponentInstanceProviderError::IncompatibleComponent(type_id))
+        .and_then(|p| {
+            p.downcast::<ComponentInstancePtr<T>>()
+                .map(|p| (*p).clone())
+                .map_err(|_| ComponentInstanceProviderError::IncompatibleComponent(type_id))
+        })
 }
 
 #[cfg(test)]
@@ -167,20 +163,18 @@ mod tests {
         TypedComponentInstanceProvider,
     };
     use mockall::predicate::*;
-    use std::any::TypeId;
+    use std::any::{Any, TypeId};
 
     struct TestComponent;
 
     impl Injectable for TestComponent {}
 
-    unsafe fn test_cast(
+    fn test_cast(
         instance: ComponentInstanceAnyPtr,
-        result: *mut (),
-    ) -> Result<(), ComponentInstanceAnyPtr> {
-        let p = instance.downcast()?;
-        let result = &mut *(result as *mut Option<ComponentInstancePtr<TestComponent>>);
-        *result = Some(p);
-        Ok(())
+    ) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr> {
+        instance
+            .downcast::<TestComponent>()
+            .map(|p| Box::new(p) as Box<dyn Any>)
     }
 
     #[test]

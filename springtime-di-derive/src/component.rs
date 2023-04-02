@@ -283,31 +283,28 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
             }
 
             const _: () = {
-                fn constructor(instance_provider: &mut dyn springtime_di::instance_provider::ComponentInstanceProvider) -> Result<springtime_di::instance_provider::ComponentInstanceAnyPtr, springtime_di::error::ComponentInstanceProviderError> {
-                    use springtime_di::component::Component;
-                    #ident::create(instance_provider).map(|p| springtime_di::instance_provider::ComponentInstancePtr::new(p) as springtime_di::instance_provider::ComponentInstanceAnyPtr)
+                use springtime_di::component::{Component, ComponentDowncast};
+                use springtime_di::component_registry::ComponentMetadata;
+                use springtime_di::component_registry::internal::{ComponentDefinitionRegisterer, submit, TypedComponentDefinition};
+                use springtime_di::error::ComponentInstanceProviderError;
+                use springtime_di::instance_provider::{ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr};
+                use std::any::{Any, TypeId, type_name};
+
+                fn constructor(instance_provider: &mut dyn ComponentInstanceProvider) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
+                    #ident::create(instance_provider).map(|p| ComponentInstancePtr::new(p) as ComponentInstanceAnyPtr)
                 }
 
-                #[allow(unsafe_code)]
-                unsafe fn cast(
-                    instance: springtime_di::instance_provider::ComponentInstanceAnyPtr,
-                    result: *mut (),
-                ) -> Result<(), springtime_di::instance_provider::ComponentInstanceAnyPtr> {
-                    use springtime_di::component::ComponentDowncast;
-                    let p = #ident::downcast(instance)?;
-                    let result = &mut *(result as *mut Option<springtime_di::instance_provider::ComponentInstancePtr<#ident>>);
-                    *result = Some(p);
-                    Ok(())
+                fn cast(instance: ComponentInstanceAnyPtr) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr> {
+                    #ident::downcast(instance).map(|p| Box::new(p) as Box<dyn Any>)
                 }
 
-                fn register() -> springtime_di::component_registry::internal::TypedComponentDefinition {
-                    use std::any::{TypeId, type_name};
-                    springtime_di::component_registry::internal::TypedComponentDefinition {
+                fn register() -> TypedComponentDefinition {
+                    TypedComponentDefinition {
                         target: TypeId::of::<#ident>(),
                         target_name: type_name::<#ident>(),
                         condition: #condition,
                         priority: #priority,
-                        metadata: springtime_di::component_registry::ComponentMetadata {
+                        metadata: ComponentMetadata {
                             names: vec![#(#names.to_string()),*],
                             constructor,
                             cast,
@@ -315,8 +312,8 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
                     }
                 }
 
-                springtime_di::component_registry::internal::submit! {
-                    springtime_di::component_registry::internal::ComponentDefinitionRegisterer {
+                submit! {
+                    ComponentDefinitionRegisterer {
                         register,
                     }
                 };
@@ -374,36 +371,34 @@ pub fn register_component_alias(
             }
 
             const _: () = {
-                #[allow(unsafe_code)]
-                unsafe fn cast(
-                    instance: springtime_di::instance_provider::ComponentInstanceAnyPtr,
-                    result: *mut (),
-                ) -> Result<(), springtime_di::instance_provider::ComponentInstanceAnyPtr> {
-                    use springtime_di::component::ComponentDowncast;
-                    let p = <dyn #trait_type #trait_bounds as springtime_di::component::ComponentDowncast<#target_type>>::downcast(instance)?;
-                    let result = &mut *(result as *mut Option<springtime_di::instance_provider::ComponentInstancePtr<dyn #trait_type #trait_bounds>>);
-                    *result = Some(p);
-                    Ok(())
+                use springtime_di::component::ComponentDowncast;
+                use springtime_di::component_registry::ComponentAliasMetadata;
+                use springtime_di::component_registry::internal::{ComponentAliasDefinition, ComponentAliasRegisterer, submit};
+                use springtime_di::instance_provider::ComponentInstanceAnyPtr;
+                use std::any::{Any, TypeId, type_name};
+
+                fn cast(instance: ComponentInstanceAnyPtr) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr> {
+                    <dyn #trait_type #trait_bounds as ComponentDowncast<#target_type>>::downcast(instance)
+                        .map(|p| Box::new(p) as Box<dyn Any>)
                 }
 
-                fn register() -> springtime_di::component_registry::internal::ComponentAliasDefinition {
-                    use std::any::{TypeId, type_name};
-                    springtime_di::component_registry::internal::ComponentAliasDefinition {
+                fn register() -> ComponentAliasDefinition {
+                    ComponentAliasDefinition {
                         alias_type: TypeId::of::<dyn #trait_type #trait_bounds>(),
                         target_type: TypeId::of::<#target_type>(),
                         alias_name: type_name::<dyn #trait_type #trait_bounds>(),
                         target_name: type_name::<#target_type>(),
                         condition: #condition,
                         priority: #priority,
-                        metadata: springtime_di::component_registry::ComponentAliasMetadata {
+                        metadata: ComponentAliasMetadata {
                             is_primary: #is_primary,
                             cast,
                         }
                     }
                 }
 
-                springtime_di::component_registry::internal::submit! {
-                    springtime_di::component_registry::internal::ComponentAliasRegisterer {
+                submit! {
+                    ComponentAliasRegisterer {
                         register,
                     }
                 };

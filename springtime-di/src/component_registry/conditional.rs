@@ -92,16 +92,15 @@ mod tests {
     use crate::instance_provider::ComponentInstanceAnyPtr;
     use mockall::predicate::*;
     use mockall::Sequence;
-    use std::any::TypeId;
+    use std::any::{Any, TypeId};
 
     struct TestComponent;
 
     impl Injectable for TestComponent {}
 
-    unsafe fn test_cast(
+    fn test_cast(
         instance: ComponentInstanceAnyPtr,
-        _result: *mut (),
-    ) -> Result<(), ComponentInstanceAnyPtr> {
+    ) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr> {
         Err(instance)
     }
 
