@@ -10,6 +10,7 @@ pub enum DefaultDefinition {
 pub struct FieldAttributes {
     pub default: Option<DefaultDefinition>,
     pub name: Option<LitStr>,
+    pub ignore: bool,
 }
 
 impl TryFrom<&Attribute> for FieldAttributes {
@@ -18,6 +19,7 @@ impl TryFrom<&Attribute> for FieldAttributes {
     fn try_from(value: &Attribute) -> Result<Self, Self::Error> {
         let mut default = None;
         let mut name = None;
+        let mut ignore = false;
 
         value.parse_nested_meta(|meta| {
             if meta.path.is_ident("default") {
@@ -45,12 +47,18 @@ impl TryFrom<&Attribute> for FieldAttributes {
 
                 let value = meta.value()?;
                 name = Some(value.parse()?);
+            } else if meta.path.is_ident("ignore") {
+                ignore = true;
             }
 
             Ok(())
         })?;
 
-        Ok(Self { default, name })
+        Ok(Self {
+            default,
+            name,
+            ignore,
+        })
     }
 }
 
@@ -59,6 +67,7 @@ pub struct ComponentAttributes {
     pub names: Option<ExprArray>,
     pub condition: Option<ExprPath>,
     pub priority: i8,
+    pub constructor: Option<ExprPath>,
 }
 
 impl TryFrom<&Attribute> for ComponentAttributes {
@@ -94,6 +103,18 @@ impl TryFrom<&Attribute> for ComponentAttributes {
                 }) = meta.value()?.parse::<Expr>()?
                 {
                     result.priority = priority.base10_parse()?;
+                }
+            } else if meta.path.is_ident("constructor") {
+                if result.constructor.is_some() {
+                    return Err(Error::new(value.span(), "Constructor is already defined!"));
+                }
+
+                if let Expr::Lit(ExprLit {
+                    lit: Lit::Str(path),
+                    ..
+                }) = meta.value()?.parse::<Expr>()?
+                {
+                    result.constructor = Some(path.parse()?);
                 }
             }
 

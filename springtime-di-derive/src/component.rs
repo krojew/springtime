@@ -8,9 +8,9 @@ use quote::quote;
 use std::ops::Deref;
 use syn::spanned::Spanned;
 use syn::{
-    Attribute, Data, DataStruct, DeriveInput, Error, Expr, ExprArray, ExprLit, Field, Fields,
-    FieldsNamed, FieldsUnnamed, GenericArgument, Item, Lit, LitStr, PathArguments, Result, Type,
-    TypePath, TypeTraitObject,
+    Attribute, Data, DataStruct, DeriveInput, Error, Expr, ExprArray, ExprLit, ExprPath, Field,
+    Fields, FieldsNamed, FieldsUnnamed, GenericArgument, Item, Lit, LitStr, PathArguments, Result,
+    Type, TypePath, TypeTraitObject,
 };
 
 const COMPONENT_ATTR: &str = "component";
@@ -121,7 +121,7 @@ fn get_single_instance(ty: &Type, name: Option<&LitStr>) -> TokenStream {
         .unwrap_or_else(|| get_single_unnamed_instance(ty))
 }
 
-fn generate_construction(field: &Field) -> Result<TokenStream> {
+fn generate_field_construction(field: &Field) -> Result<TokenStream> {
     for attr in &field.attrs {
         if attr.path().is_ident(COMPONENT_ATTR) {
             let attributes = FieldAttributes::try_from(attr)?;
@@ -142,7 +142,7 @@ fn make_named_struct(fields: &FieldsNamed) -> Result<TokenStream> {
         .iter()
         .map(|field| -> Result<TokenStream> {
             let ident = field.ident.as_ref().unwrap();
-            let instance = generate_construction(field)?;
+            let instance = generate_field_construction(field)?;
             Ok(quote! {
                 #ident: #instance
             })
@@ -161,7 +161,7 @@ fn make_unnamed_struct(fields: &FieldsUnnamed) -> Result<TokenStream> {
         .unnamed
         .iter()
         .map(|field| -> Result<TokenStream> {
-            let instance = generate_construction(field)?;
+            let instance = generate_field_construction(field)?;
             Ok(quote! {
                 #instance
             })
@@ -170,6 +170,45 @@ fn make_unnamed_struct(fields: &FieldsUnnamed) -> Result<TokenStream> {
 
     Ok(quote! {
         Self(#(#fields),*)
+    })
+}
+
+fn generate_constructor_call_arguments<'a>(
+    fields: impl Iterator<Item = &'a Field>,
+) -> Result<TokenStream> {
+    let fields: Vec<_> = fields
+        .map(|field| {
+            for attr in &field.attrs {
+                if attr.path().is_ident(COMPONENT_ATTR) {
+                    let attributes = FieldAttributes::try_from(attr)?;
+                    return Ok((attributes.ignore, field));
+                }
+            }
+
+            Ok((false, field))
+        })
+        .filter_map_ok(|(ignore, field)| (!ignore).then_some(field))
+        .map(|field| field.and_then(generate_field_construction))
+        .try_collect()?;
+
+    Ok(quote! {
+        #(#fields),*
+    })
+}
+
+fn make_constructor_call(fields: &Fields, constructor: &ExprPath) -> Result<TokenStream> {
+    let fields = match fields {
+        Fields::Named(FieldsNamed { named, .. }) => {
+            generate_constructor_call_arguments(named.iter())?
+        }
+        Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => {
+            generate_constructor_call_arguments(unnamed.iter())?
+        }
+        Fields::Unit => quote!(()),
+    };
+
+    Ok(quote! {
+        #constructor(#fields)
     })
 }
 
@@ -240,12 +279,20 @@ pub fn generate_injectable(item: &Item) -> Result<TokenStream> {
 pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
     if let Data::Struct(DataStruct { fields, .. }) = &input.data {
         let ident = &input.ident;
-        let generation = match fields {
-            Fields::Named(fields) => make_named_struct(fields)?,
-            Fields::Unnamed(fields) => make_unnamed_struct(fields)?,
-            Fields::Unit => quote! { Self },
-        };
         let attributes = extract_component_attributes(&input.attrs)?;
+        let generation = if let Some(ComponentAttributes {
+            constructor: Some(constructor),
+            ..
+        }) = &attributes
+        {
+            make_constructor_call(fields, constructor)?
+        } else {
+            match fields {
+                Fields::Named(fields) => make_named_struct(fields)?,
+                Fields::Unnamed(fields) => make_unnamed_struct(fields)?,
+                Fields::Unit => quote! { Self },
+            }
+        };
         let names = attributes
             .as_ref()
             .and_then(|attributes| attributes.names.clone());

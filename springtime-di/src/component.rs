@@ -52,12 +52,16 @@
 //! * `priority = number` - if a condition is present, use the given numerical priority to establish
 //! the order of registration in relation to other components with a condition (i8; higher is first;
 //! default is 0)
+//! * `constructor = "expr"` - call `expr(dependencies...)` to construct the component, instead of
+//! using standard struct construction; parameters must be in the same order as fields in the struct
+//! while non-injected fields can be ignored with the `#[component(ignore)]` attribute
 //!
 //! ### Supported `#[component]` field configuration
 //!
 //! * `default` - use `Default::default()` initialization
 //! * `default = "expr"` - call `expr()` for initialization
 //! * `name = "name"` - inject instance named as `name`
+//! * `ignore` - ignore the field when using custom constructor
 //!
 //! ## Registering component aliases
 //!

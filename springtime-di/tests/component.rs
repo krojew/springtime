@@ -75,13 +75,25 @@ mod component_derive_test {
     impl TestTrait2 for TestComponent2 {}
 
     #[derive(Component)]
-    struct TestComponent3;
+    #[component(constructor = "test_component_3")]
+    struct TestComponent3 {
+        _dependency: ComponentInstancePtr<TestDependency>,
+        #[component(ignore)]
+        _ignored: i8,
+    }
 
     #[component_alias(
         primary,
         condition = "springtime_di::component_registry::conditional::unregistered_component::<TestComponent2>"
     )]
     impl TestTrait2 for TestComponent3 {}
+
+    fn test_component_3(dependency: ComponentInstancePtr<TestDependency>) -> TestComponent3 {
+        TestComponent3 {
+            _dependency: dependency,
+            _ignored: 0,
+        }
+    }
 
     fn dummy_expr() -> i8 {
         -1
