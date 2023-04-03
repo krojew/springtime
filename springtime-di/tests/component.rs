@@ -68,7 +68,7 @@ mod component_derive_test {
         #[component(default = "dummy_expr")] i8,
     );
 
-    #[component_alias]
+    #[component_alias(name = "test_trait_1_alias_name")]
     impl TestTrait1 for TestComponent2 {}
 
     #[component_alias(primary, condition = "dummy_alias_condition", priority = 100)]
@@ -233,5 +233,15 @@ mod component_derive_test {
         assert!(registry.components_by_type::<dyn TestTrait1>().is_some());
         #[cfg(not(feature = "threadsafe"))]
         assert!(registry.components_by_type::<dyn TestTrait2>().is_some());
+    }
+
+    #[test]
+    fn should_register_alias_name() {
+        let registry =
+            StaticComponentDefinitionRegistry::new(false, &SimpleContextFactory::default())
+                .unwrap();
+        assert!(registry
+            .component_by_name("test_trait_1_alias_name")
+            .is_some());
     }
 }

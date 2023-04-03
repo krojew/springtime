@@ -130,6 +130,7 @@ pub struct ComponentAliasAttributes {
     pub is_primary: bool,
     pub condition: Option<ExprPath>,
     pub priority: i8,
+    pub name: Option<LitStr>,
 }
 
 impl Parse for ComponentAliasAttributes {
@@ -156,6 +157,12 @@ impl Parse for ComponentAliasAttributes {
                     .parse::<LitArg<kw::priority, LitInt>>()?
                     .value
                     .base10_parse()?;
+            } else if lookahead.peek(kw::name) {
+                if result.name.is_some() {
+                    return Err(Error::new(input.span(), "Name is already defined!"));
+                }
+
+                result.name = Some(input.parse::<LitArg<kw::name, LitStr>>()?.value);
             } else if lookahead.peek(Token![,]) {
                 let _ = input.parse::<Token![,]>()?;
             } else {
@@ -190,4 +197,5 @@ mod kw {
     custom_keyword!(primary);
     custom_keyword!(condition);
     custom_keyword!(priority);
+    custom_keyword!(name);
 }

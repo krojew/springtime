@@ -101,6 +101,7 @@
 //! * `priority = number` - if a condition is present, use the given numerical priority to establish
 //! the order of registration in relation to other components with a condition (i8; higher is first;
 //! default is 0)
+//! * `name = "name"` - optional name, which should be associated with the given alias
 
 use crate::error::ComponentInstanceProviderError;
 use crate::instance_provider::{

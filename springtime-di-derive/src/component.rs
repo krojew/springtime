@@ -352,7 +352,7 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
                         condition: #condition,
                         priority: #priority,
                         metadata: ComponentMetadata {
-                            names: vec![#(#names.to_string()),*],
+                            names: [#(#names.to_string()),*].into_iter().collect(),
                             constructor,
                             cast,
                         },
@@ -401,6 +401,11 @@ pub fn register_component_alias(
             .map(|condition| quote!(Some(#condition)))
             .unwrap_or_else(|| quote!(None));
         let priority = args.priority;
+        let name = args
+            .name
+            .as_ref()
+            .map(|name| quote!(Some(#name.to_string())))
+            .unwrap_or_else(|| quote!(None));
 
         #[cfg(feature = "threadsafe")]
         let trait_bounds = quote!( + Sync + Send);
@@ -439,6 +444,7 @@ pub fn register_component_alias(
                         priority: #priority,
                         metadata: ComponentAliasMetadata {
                             is_primary: #is_primary,
+                            name: #name,
                             cast,
                         }
                     }

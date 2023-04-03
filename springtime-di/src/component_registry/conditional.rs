@@ -73,7 +73,7 @@ pub fn registered_component<T: Injectable>(
     context.registry().is_registered(TypeId::of::<T>())
 }
 
-/// Simple condition returning true if the given type is not yet registered.
+/// Simple condition returning true if the given type is not registered yet.
 pub fn unregistered_component<T: Injectable>(
     context: &dyn Context,
     metadata: ConditionMetadata,
@@ -127,6 +127,7 @@ mod tests {
         };
         let metadata = ConditionMetadata::Alias(&ComponentAliasMetadata {
             is_primary: false,
+            name: None,
             cast: test_cast,
         });
 

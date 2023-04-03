@@ -16,7 +16,7 @@ use crate::component_registry::registry::NamedComponentDefinitionMap;
 use crate::error::{ComponentDefinitionRegistryError, ComponentInstanceProviderError};
 use crate::instance_provider::{CastFunction, ComponentInstanceAnyPtr, ComponentInstanceProvider};
 use derivative::Derivative;
-use fxhash::FxHashMap;
+use fxhash::{FxHashMap, FxHashSet};
 use itertools::Itertools;
 use std::any::{type_name, TypeId};
 
@@ -27,7 +27,7 @@ pub struct ComponentDefinition {
     /// Each component has at least one name, which can be used to request a specific instance.
     /// Derive-based components have their name generated from type name by converting it to snake
     /// case.
-    pub names: Vec<String>,
+    pub names: FxHashSet<String>,
 
     /// With multiple components registered for a given type, one of them can be marked as primary
     /// and returned when requesting a single instance.
@@ -50,7 +50,7 @@ pub struct ComponentDefinition {
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub struct ComponentMetadata {
-    pub names: Vec<String>,
+    pub names: FxHashSet<String>,
 
     #[derivative(Debug = "ignore")]
     pub constructor: fn(
@@ -67,6 +67,8 @@ pub struct ComponentMetadata {
 #[derivative(Debug)]
 pub struct ComponentAliasMetadata {
     pub is_primary: bool,
+
+    pub name: Option<String>,
 
     #[derivative(Debug = "ignore")]
     pub cast: CastFunction,
@@ -205,6 +207,7 @@ impl StaticComponentDefinitionRegistry {
                     definition.alias_name,
                     definition.target_name,
                     &definition.metadata,
+                    self.allow_definition_overriding,
                 )?;
             }
         }
@@ -247,6 +250,7 @@ impl StaticComponentDefinitionRegistry {
                 definition.alias_name,
                 definition.target_name,
                 &definition.metadata,
+                self.allow_definition_overriding,
             )?;
         }
 
@@ -278,6 +282,7 @@ impl ComponentDefinitionRegistry for StaticComponentDefinitionRegistry {
             type_name::<Source>(),
             type_name::<Target>(),
             metadata,
+            self.allow_definition_overriding,
         )
     }
 
@@ -359,6 +364,7 @@ mod registry {
             alias_name: &str,
             target_name: &str,
             metadata: &ComponentAliasMetadata,
+            allow_definition_overriding: bool,
         ) -> Result<(), ComponentDefinitionRegistryError> {
             let mut target_definitions = self
                 .definitions
@@ -369,8 +375,51 @@ mod registry {
                 })
                 .cloned()?;
 
+            // this should not be possible, since we don't allow removing definitions, but better
+            // be safe
+            if target_definitions.is_empty() {
+                return Err(ComponentDefinitionRegistryError::MissingBaseComponent {
+                    alias_type: alias_name.to_string(),
+                    target_type: target_name.to_string(),
+                });
+            }
+
+            // if we're registering a primary alias, there needs to be a single target
+            if metadata.is_primary && target_definitions.len() > 1 {
+                return Err(
+                    ComponentDefinitionRegistryError::DuplicatePrimaryComponent {
+                        alias_type: alias_name.to_string(),
+                        target_type: target_name.to_string(),
+                    },
+                );
+            }
+
             for definition in &mut target_definitions {
+                // should run once due to above anyway
                 definition.is_primary = metadata.is_primary;
+            }
+
+            if let Some(name) = &metadata.name {
+                if !allow_definition_overriding && self.names.contains_key(name) {
+                    return Err(ComponentDefinitionRegistryError::DuplicateComponentName(
+                        name.clone(),
+                    ));
+                }
+
+                // name should point to a single definition; the target, in general, should be a
+                // single concrete type, but in theory, we can point an alias to an alias and let it
+                // resolve later somehow
+                if target_definitions.len() > 1 {
+                    return Err(ComponentDefinitionRegistryError::CannotRegisterNamedAliasForAmbiguousTarget {
+                        alias_type: alias_name.to_string(),
+                        target_type: target_name.to_string(),
+                        name: name.clone(),
+                    });
+                }
+
+                for definition in &mut target_definitions {
+                    definition.names.insert(name.clone());
+                }
             }
 
             if let Some(alias_definitions) = self.definitions.get_mut(&alias_type) {
@@ -387,8 +436,20 @@ mod registry {
                     );
                 }
 
+                if let Some(name) = &metadata.name {
+                    // at this point target_definitions should have only one definition
+                    debug_assert_eq!(target_definitions.len(), 1);
+
+                    self.names
+                        .insert(name.clone(), (alias_type, alias_definitions.len()));
+                }
+
                 alias_definitions.append(&mut target_definitions);
             } else {
+                if let Some(name) = &metadata.name {
+                    self.names.insert(name.clone(), (alias_type, 0));
+                }
+
                 self.definitions.insert(alias_type, target_definitions);
             }
 
@@ -488,21 +549,155 @@ mod registry {
             Err(instance)
         }
 
-        fn create_metadata() -> (ComponentMetadata, TypeId) {
-            fn constructor(
-                _instance_provider: &mut dyn ComponentInstanceProvider,
-            ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
-                Ok(ComponentInstancePtr::new(0) as ComponentInstanceAnyPtr)
-            }
+        fn constructor(
+            _instance_provider: &mut dyn ComponentInstanceProvider,
+        ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
+            Ok(ComponentInstancePtr::new(0) as ComponentInstanceAnyPtr)
+        }
 
+        fn create_metadata() -> (ComponentMetadata, TypeId) {
             (
                 ComponentMetadata {
-                    names: vec!["name".to_string()],
+                    names: ["name".to_string()].into_iter().collect(),
                     constructor,
                     cast,
                 },
                 TypeId::of::<i8>(),
             )
+        }
+
+        #[test]
+        fn should_reject_alias_name_for_ambiguous_target() {
+            let definition = ComponentMetadata {
+                names: Default::default(),
+                constructor,
+                cast,
+            };
+            let alias_id_1 = TypeId::of::<u8>();
+            let alias_id_2 = TypeId::of::<u16>();
+            let target_id_1 = TypeId::of::<i16>();
+            let target_id_2 = TypeId::of::<u16>();
+
+            let mut registry = NamedComponentDefinitionMap::default();
+            registry
+                .try_register_component(target_id_1, "", &definition, false)
+                .unwrap();
+            registry
+                .try_register_component(target_id_2, "", &definition, false)
+                .unwrap();
+            registry
+                .try_register_alias(
+                    alias_id_1,
+                    target_id_1,
+                    "",
+                    "",
+                    &ComponentAliasMetadata {
+                        is_primary: false,
+                        name: None,
+                        cast,
+                    },
+                    false,
+                )
+                .unwrap();
+            registry
+                .try_register_alias(
+                    alias_id_1,
+                    target_id_2,
+                    "",
+                    "",
+                    &ComponentAliasMetadata {
+                        is_primary: false,
+                        name: None,
+                        cast,
+                    },
+                    false,
+                )
+                .unwrap();
+
+            assert!(matches!(
+                registry
+                    .try_register_alias(
+                        alias_id_2,
+                        alias_id_1,
+                        "",
+                        "",
+                        &ComponentAliasMetadata {
+                            is_primary: false,
+                            name: Some("alias_name".to_string()),
+                            cast,
+                        },
+                        false,
+                    )
+                    .unwrap_err(),
+                ComponentDefinitionRegistryError::CannotRegisterNamedAliasForAmbiguousTarget { .. }
+            ));
+        }
+
+        #[test]
+        fn should_reject_primary_alias_for_ambiguous_target() {
+            let definition = ComponentMetadata {
+                names: Default::default(),
+                constructor,
+                cast,
+            };
+            let alias_id_1 = TypeId::of::<u8>();
+            let alias_id_2 = TypeId::of::<u16>();
+            let target_id_1 = TypeId::of::<i16>();
+            let target_id_2 = TypeId::of::<u16>();
+
+            let mut registry = NamedComponentDefinitionMap::default();
+            registry
+                .try_register_component(target_id_1, "", &definition, false)
+                .unwrap();
+            registry
+                .try_register_component(target_id_2, "", &definition, false)
+                .unwrap();
+            registry
+                .try_register_alias(
+                    alias_id_1,
+                    target_id_1,
+                    "",
+                    "",
+                    &ComponentAliasMetadata {
+                        is_primary: false,
+                        name: None,
+                        cast,
+                    },
+                    false,
+                )
+                .unwrap();
+            registry
+                .try_register_alias(
+                    alias_id_1,
+                    target_id_2,
+                    "",
+                    "",
+                    &ComponentAliasMetadata {
+                        is_primary: false,
+                        name: None,
+                        cast,
+                    },
+                    false,
+                )
+                .unwrap();
+
+            assert!(matches!(
+                registry
+                    .try_register_alias(
+                        alias_id_2,
+                        alias_id_1,
+                        "",
+                        "",
+                        &ComponentAliasMetadata {
+                            is_primary: true,
+                            name: None,
+                            cast,
+                        },
+                        false,
+                    )
+                    .unwrap_err(),
+                ComponentDefinitionRegistryError::DuplicatePrimaryComponent { .. }
+            ));
         }
 
         #[test]
@@ -573,8 +768,10 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: false,
+                        name: None,
                         cast,
                     },
+                    false,
                 )
                 .unwrap();
 
@@ -582,6 +779,33 @@ mod registry {
                 registry.components_by_type(alias_id).unwrap()[0].names,
                 definition.names
             );
+        }
+
+        #[test]
+        fn should_register_alias_name() {
+            let (definition, id) = create_metadata();
+            let alias_id = TypeId::of::<u8>();
+
+            let mut registry = NamedComponentDefinitionMap::default();
+            registry
+                .try_register_component(id, "", &definition, false)
+                .unwrap();
+            registry
+                .try_register_alias(
+                    alias_id,
+                    id,
+                    "",
+                    "",
+                    &ComponentAliasMetadata {
+                        is_primary: false,
+                        name: Some("alias".to_string()),
+                        cast,
+                    },
+                    false,
+                )
+                .unwrap();
+
+            assert!(registry.component_by_name("alias").is_some());
         }
 
         #[test]
@@ -601,8 +825,10 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: true,
+                        name: None,
                         cast,
                     },
+                    false,
                 )
                 .unwrap();
 
@@ -615,8 +841,10 @@ mod registry {
                         "",
                         &ComponentAliasMetadata {
                             is_primary: true,
+                            name: None,
                             cast
-                        }
+                        },
+                        false
                     )
                     .unwrap_err(),
                 ComponentDefinitionRegistryError::DuplicatePrimaryComponent { .. }
@@ -725,7 +953,7 @@ mod tests {
                 .unwrap();
         registry
             .register_component::<TestComponent>(&ComponentMetadata {
-                names: vec!["a".to_string()],
+                names: ["a".to_string()].into_iter().collect(),
                 constructor: test_constructor,
                 cast: test_cast,
             })
@@ -750,7 +978,7 @@ mod tests {
     #[test]
     fn should_not_register_duplicate_name() {
         let definition = ComponentDefinition {
-            names: vec!["name".to_string()],
+            names: ["name".to_string()].into_iter().collect(),
             is_primary: false,
             constructor: test_constructor,
             cast: test_cast,
@@ -770,12 +998,12 @@ mod tests {
         assert_eq!(
             registry
                 .register_component::<TestComponent>(&ComponentMetadata {
-                    names: definition.names.clone(),
+                    names: definition.names,
                     constructor: test_constructor,
                     cast: test_cast,
                 })
                 .unwrap_err(),
-            ComponentDefinitionRegistryError::DuplicateComponentName(definition.names[0].clone())
+            ComponentDefinitionRegistryError::DuplicateComponentName("name".to_string())
         );
     }
 
@@ -785,14 +1013,14 @@ mod tests {
             StaticComponentDefinitionRegistry::new(true, &SimpleContextFactory::default()).unwrap();
         registry
             .register_component::<TestComponent>(&ComponentMetadata {
-                names: vec!["name".to_string()],
+                names: ["name".to_string()].into_iter().collect(),
                 constructor: test_constructor,
                 cast: test_cast,
             })
             .unwrap();
         registry
             .register_component::<TestComponent>(&ComponentMetadata {
-                names: vec!["name2".to_string()],
+                names: ["name2".to_string()].into_iter().collect(),
                 constructor: test_constructor,
                 cast: test_cast,
             })

@@ -17,16 +17,24 @@ pub enum ComponentInstanceProviderError {
 pub enum ComponentDefinitionRegistryError {
     #[error("Attempted to register a duplicated component with name: {0}")]
     DuplicateComponentName(String),
-    #[error("Attempted to re-register a concrete component type: {0:?}")]
+    #[error("Attempted to re-register a concrete component type: {0}")]
     DuplicateComponentType(String),
-    #[error("Missing base component of type {target_type:?} for alias: {alias_type:?}")]
+    #[error("Missing base component of type {target_type} for alias: {alias_type}")]
     MissingBaseComponent {
         alias_type: String,
         target_type: String,
     },
-    #[error("Registering a duplicate primary component of type {target_type:?} for alias: {alias_type:?}")]
+    #[error(
+        "Registering a duplicate primary component of type {target_type} for alias: {alias_type}"
+    )]
     DuplicatePrimaryComponent {
         alias_type: String,
         target_type: String,
+    },
+    #[error("Cannot register alias {alias_type} named {name} for multiple targets: {target_type}")]
+    CannotRegisterNamedAliasForAmbiguousTarget {
+        alias_type: String,
+        target_type: String,
+        name: String,
     },
 }
