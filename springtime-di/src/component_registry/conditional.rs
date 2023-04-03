@@ -81,15 +81,30 @@ pub fn unregistered_component<T: Injectable>(
     !registered_component::<T>(context, metadata)
 }
 
+/// Returns true if no given name is already registered.
+pub fn unregistered_name(context: &dyn Context, metadata: ConditionMetadata) -> bool {
+    let registry = context.registry();
+    match metadata {
+        ConditionMetadata::Component(ComponentMetadata { names, .. }) => {
+            !names.iter().any(|name| registry.is_name_registered(name))
+        }
+        ConditionMetadata::Alias(ComponentAliasMetadata {
+            name: Some(name), ..
+        }) => !registry.is_name_registered(name),
+        ConditionMetadata::Alias(ComponentAliasMetadata { name: None, .. }) => true,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::component::Injectable;
     use crate::component_registry::conditional::{
-        registered_component, unregistered_component, ConditionMetadata,
+        registered_component, unregistered_component, unregistered_name, ConditionMetadata,
         MockComponentDefinitionRegistryFacade, SimpleContext,
     };
-    use crate::component_registry::ComponentAliasMetadata;
-    use crate::instance_provider::ComponentInstanceAnyPtr;
+    use crate::component_registry::{ComponentAliasMetadata, ComponentMetadata};
+    use crate::error::ComponentInstanceProviderError;
+    use crate::instance_provider::{ComponentInstanceAnyPtr, ComponentInstanceProvider};
     use mockall::predicate::*;
     use mockall::Sequence;
     use std::any::{Any, TypeId};
@@ -97,6 +112,14 @@ mod tests {
     struct TestComponent;
 
     impl Injectable for TestComponent {}
+
+    fn test_constructor(
+        _instance_provider: &mut dyn ComponentInstanceProvider,
+    ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
+        Err(ComponentInstanceProviderError::NoNamedInstance(
+            "".to_string(),
+        ))
+    }
 
     fn test_cast(
         instance: ComponentInstanceAnyPtr,
@@ -135,5 +158,56 @@ mod tests {
         assert!(!unregistered_component::<TestComponent>(&context, metadata));
         assert!(!registered_component::<TestComponent>(&context, metadata));
         assert!(unregistered_component::<TestComponent>(&context, metadata));
+    }
+
+    #[test]
+    fn should_check_for_name_existence() {
+        let mut registry = MockComponentDefinitionRegistryFacade::new();
+        registry
+            .expect_is_name_registered()
+            .with(eq("n1"))
+            .times(2)
+            .return_const(true);
+        registry
+            .expect_is_name_registered()
+            .with(eq("n2"))
+            .times(1)
+            .return_const(false);
+        registry
+            .expect_is_name_registered()
+            .with(eq("n3"))
+            .times(1)
+            .return_const(false);
+
+        let context = SimpleContext {
+            registry: &registry,
+        };
+
+        let metadata = ComponentMetadata {
+            names: ["n2".to_string(), "n1".to_string()].into_iter().collect(),
+            constructor: test_constructor,
+            cast: test_cast,
+        };
+        let metadata = ConditionMetadata::Component(&metadata);
+
+        assert!(!unregistered_name(&context, metadata));
+
+        let metadata = ComponentAliasMetadata {
+            is_primary: false,
+            name: Some("n1".to_string()),
+            cast: test_cast,
+        };
+        let metadata = ConditionMetadata::Alias(&metadata);
+
+        assert!(!unregistered_name(&context, metadata));
+
+        let metadata = ComponentAliasMetadata {
+            is_primary: false,
+            name: Some("n3".to_string()),
+            cast: test_cast,
+        };
+        let metadata = ConditionMetadata::Alias(&metadata);
+
+        assert!(unregistered_name(&context, metadata));
     }
 }
