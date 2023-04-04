@@ -100,6 +100,9 @@ pub trait ComponentDefinitionRegistry {
     /// Returns a definition with given name.
     fn component_by_name(&self, name: &str) -> Option<ComponentDefinition>;
 
+    /// Returns primary component for a given type.
+    fn primary_component<T: Injectable + ?Sized>(&self) -> Option<ComponentDefinition>;
+
     /// Checks if given type is present in this registry.
     fn is_registered<T: Injectable>(&self) -> bool;
 
@@ -296,6 +299,10 @@ impl ComponentDefinitionRegistry for StaticComponentDefinitionRegistry {
         self.definition_map.component_by_name(name)
     }
 
+    fn primary_component<T: Injectable + ?Sized>(&self) -> Option<ComponentDefinition> {
+        self.definition_map.primary_component(TypeId::of::<T>())
+    }
+
     #[inline]
     fn is_registered<T: Injectable>(&self) -> bool {
         <Self as ComponentDefinitionRegistryFacade>::is_registered(self, TypeId::of::<T>())
@@ -355,6 +362,17 @@ mod registry {
             type_id: TypeId,
         ) -> Option<Vec<ComponentDefinition>> {
             self.definitions.get(&type_id).cloned()
+        }
+
+        pub(super) fn primary_component(&self, type_id: TypeId) -> Option<ComponentDefinition> {
+            self.definitions.get(&type_id).and_then(|definitions| {
+                (if definitions.len() == 1 {
+                    definitions.get(0)
+                } else {
+                    definitions.iter().find(|definition| definition.is_primary)
+                })
+                .cloned()
+            })
         }
 
         pub(super) fn try_register_alias(
@@ -849,6 +867,128 @@ mod registry {
                     .unwrap_err(),
                 ComponentDefinitionRegistryError::DuplicatePrimaryComponent { .. }
             ));
+        }
+
+        #[test]
+        fn should_return_primary_single_definition() {
+            let (definition, id) = create_metadata();
+            let alias_id = TypeId::of::<u8>();
+
+            let mut registry = NamedComponentDefinitionMap::default();
+            registry
+                .try_register_component(id, "", &definition, false)
+                .unwrap();
+            registry
+                .try_register_alias(
+                    alias_id,
+                    id,
+                    "",
+                    "",
+                    &ComponentAliasMetadata {
+                        is_primary: false,
+                        name: None,
+                        scope_name: "".to_string(),
+                        cast,
+                    },
+                    false,
+                )
+                .unwrap();
+
+            assert!(registry.primary_component(alias_id).is_some());
+        }
+
+        #[test]
+        fn should_return_explicit_primary_definition() {
+            let (definition, id_1) = create_metadata();
+            let id_2 = TypeId::of::<u16>();
+            let alias_id = TypeId::of::<u8>();
+
+            let mut registry = NamedComponentDefinitionMap::default();
+            registry
+                .try_register_component(id_1, "", &definition, false)
+                .unwrap();
+            registry
+                .try_register_component(id_2, "", &definition, true)
+                .unwrap();
+            registry
+                .try_register_alias(
+                    alias_id,
+                    id_1,
+                    "",
+                    "",
+                    &ComponentAliasMetadata {
+                        is_primary: false,
+                        name: None,
+                        scope_name: "".to_string(),
+                        cast,
+                    },
+                    false,
+                )
+                .unwrap();
+            registry
+                .try_register_alias(
+                    alias_id,
+                    id_2,
+                    "",
+                    "",
+                    &ComponentAliasMetadata {
+                        is_primary: true,
+                        name: None,
+                        scope_name: "".to_string(),
+                        cast,
+                    },
+                    false,
+                )
+                .unwrap();
+
+            assert!(registry.primary_component(alias_id).is_some());
+        }
+
+        #[test]
+        fn should_not_return_unknown_primary_definition() {
+            let (definition, id_1) = create_metadata();
+            let id_2 = TypeId::of::<u16>();
+            let alias_id = TypeId::of::<u8>();
+
+            let mut registry = NamedComponentDefinitionMap::default();
+            registry
+                .try_register_component(id_1, "", &definition, false)
+                .unwrap();
+            registry
+                .try_register_component(id_2, "", &definition, true)
+                .unwrap();
+            registry
+                .try_register_alias(
+                    alias_id,
+                    id_1,
+                    "",
+                    "",
+                    &ComponentAliasMetadata {
+                        is_primary: false,
+                        name: None,
+                        scope_name: "".to_string(),
+                        cast,
+                    },
+                    false,
+                )
+                .unwrap();
+            registry
+                .try_register_alias(
+                    alias_id,
+                    id_2,
+                    "",
+                    "",
+                    &ComponentAliasMetadata {
+                        is_primary: false,
+                        name: None,
+                        scope_name: "".to_string(),
+                        cast,
+                    },
+                    false,
+                )
+                .unwrap();
+
+            assert!(registry.primary_component(alias_id).is_none());
         }
     }
 }
