@@ -887,7 +887,6 @@ mod registry {
                     &ComponentAliasMetadata {
                         is_primary: false,
                         name: None,
-                        scope_name: "".to_string(),
                         cast,
                     },
                     false,
@@ -919,7 +918,6 @@ mod registry {
                     &ComponentAliasMetadata {
                         is_primary: false,
                         name: None,
-                        scope_name: "".to_string(),
                         cast,
                     },
                     false,
@@ -934,7 +932,6 @@ mod registry {
                     &ComponentAliasMetadata {
                         is_primary: true,
                         name: None,
-                        scope_name: "".to_string(),
                         cast,
                     },
                     false,
@@ -966,7 +963,6 @@ mod registry {
                     &ComponentAliasMetadata {
                         is_primary: false,
                         name: None,
-                        scope_name: "".to_string(),
                         cast,
                     },
                     false,
@@ -981,7 +977,6 @@ mod registry {
                     &ComponentAliasMetadata {
                         is_primary: false,
                         name: None,
-                        scope_name: "".to_string(),
                         cast,
                     },
                     false,
