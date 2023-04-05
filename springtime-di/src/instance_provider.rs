@@ -23,6 +23,8 @@ pub enum ComponentInstanceProviderError {
     NoNamedInstance(String),
     #[error("Unrecognized scope: {0}")]
     UnrecognizedScope(String),
+    #[error("Detected dependency cycle for: {0:?}")]
+    DependencyCycle(TypeId),
 }
 
 #[cfg(not(feature = "threadsafe"))]
@@ -36,8 +38,8 @@ pub type ComponentInstanceAnyPtr = ComponentInstancePtr<dyn Any + 'static>;
 pub type ComponentInstanceAnyPtr = ComponentInstancePtr<dyn Any + Send + Sync + 'static>;
 
 /// (Usually generated) cast function which consumes given type-erased instance pointer and casts it
-/// to the desired [ComponentInstancePtr<T>]. The result is then returned as type-erased `Box` which
-/// is then converted back to [ComponentInstancePtr<T>]. Such shenanigans are needed to be able to
+/// to the desired [`ComponentInstancePtr<T>`]. The result is then returned as type-erased `Box` which
+/// is then converted back to [`ComponentInstancePtr<T>`]. Such shenanigans are needed to be able to
 /// convert between two `dyn Traits`.
 pub type CastFunction =
     fn(instance: ComponentInstanceAnyPtr) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr>;
@@ -58,12 +60,11 @@ pub trait ComponentInstanceProvider {
     fn instances(
         &mut self,
         type_id: TypeId,
-    ) -> Result<(Vec<ComponentInstanceAnyPtr>, CastFunction), ComponentInstanceProviderError>;
+    ) -> Result<Vec<(ComponentInstanceAnyPtr, CastFunction)>, ComponentInstanceProviderError>;
 
     /// Tries to return an instance with the given name.
     fn instance_by_name(
         &mut self,
-        type_id: TypeId,
         name: &str,
     ) -> Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError>;
 }
@@ -123,10 +124,10 @@ impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for
         &mut self,
     ) -> Result<Vec<ComponentInstancePtr<T>>, ComponentInstanceProviderError> {
         let type_id = TypeId::of::<T>();
-        self.instances(type_id).and_then(|(instances, cast)| {
+        self.instances(type_id).and_then(|instances| {
             instances
                 .into_iter()
-                .map(move |p| cast_instance(p, cast, type_id))
+                .map(move |(p, cast)| cast_instance(p, cast, type_id))
                 .try_collect()
         })
     }
@@ -135,9 +136,8 @@ impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for
         &mut self,
         name: &str,
     ) -> Result<ComponentInstancePtr<T>, ComponentInstanceProviderError> {
-        let type_id = TypeId::of::<T>();
-        self.instance_by_name(type_id, name)
-            .and_then(move |(p, cast)| cast_instance(p, cast, type_id))
+        self.instance_by_name(name)
+            .and_then(move |(p, cast)| cast_instance(p, cast, TypeId::of::<T>()))
     }
 
     fn instance_by_name_option<T: Injectable + ?Sized>(
@@ -232,10 +232,10 @@ mod tests {
             .expect_instances()
             .with(eq(TypeId::of::<TestComponent>()))
             .times(1)
-            .return_const(Ok((
-                vec![ComponentInstancePtr::new(TestComponent) as ComponentInstanceAnyPtr],
+            .return_const(Ok(vec![(
+                ComponentInstancePtr::new(TestComponent) as ComponentInstanceAnyPtr,
                 test_cast as CastFunction,
-            )));
+            )]));
 
         assert!(!instance_provider
             .instances_typed::<TestComponent>()
@@ -250,7 +250,7 @@ mod tests {
         let mut instance_provider = MockComponentInstanceProvider::new();
         instance_provider
             .expect_instance_by_name()
-            .with(eq(TypeId::of::<TestComponent>()), eq(name))
+            .with(eq(name))
             .times(1)
             .return_const(Ok((
                 ComponentInstancePtr::new(TestComponent) as ComponentInstanceAnyPtr,
@@ -269,7 +269,7 @@ mod tests {
         let mut instance_provider = MockComponentInstanceProvider::new();
         instance_provider
             .expect_instance_by_name()
-            .with(eq(TypeId::of::<TestComponent>()), eq(name))
+            .with(eq(name))
             .times(1)
             .return_const(Ok((
                 ComponentInstancePtr::new(TestComponent) as ComponentInstanceAnyPtr,

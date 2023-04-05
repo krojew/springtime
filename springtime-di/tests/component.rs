@@ -166,20 +166,24 @@ mod component_derive_test {
         fn instances(
             &mut self,
             type_id: TypeId,
-        ) -> Result<(Vec<ComponentInstanceAnyPtr>, CastFunction), ComponentInstanceProviderError>
+        ) -> Result<Vec<(ComponentInstanceAnyPtr, CastFunction)>, ComponentInstanceProviderError>
         {
             self.primary_instance(type_id)
-                .map(|(p, cast)| (vec![p], cast))
+                .map(|(p, cast)| vec![(p, cast)])
         }
 
         fn instance_by_name(
             &mut self,
-            type_id: TypeId,
             name: &str,
         ) -> Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError>
         {
             if name == "test_dependency" {
-                self.primary_instance(type_id)
+                #[cfg(feature = "threadsafe")]
+                let trait_type = TypeId::of::<dyn TestTrait3 + Sync + Send>();
+                #[cfg(not(feature = "threadsafe"))]
+                let trait_type = TypeId::of::<dyn TestTrait3>();
+
+                self.primary_instance(trait_type)
             } else {
                 Err(ComponentInstanceProviderError::NoNamedInstance(
                     name.to_string(),
@@ -218,21 +222,21 @@ mod component_derive_test {
         let registry =
             StaticComponentDefinitionRegistry::new(false, &SimpleContextFactory::default())
                 .unwrap();
-        assert!(registry
+        assert!(!registry
             .components_by_type_typed::<TestDependency>()
-            .is_some());
-        assert!(registry
+            .is_empty());
+        assert!(!registry
             .components_by_type_typed::<TestComponent2>()
-            .is_some());
+            .is_empty());
 
         #[cfg(feature = "threadsafe")]
-        assert!(registry
+        assert!(!registry
             .components_by_type_typed::<dyn TestTrait1 + Sync + Send>()
-            .is_some());
+            .is_empty());
         #[cfg(feature = "threadsafe")]
-        assert!(registry
+        assert!(!registry
             .components_by_type_typed::<dyn TestTrait2 + Sync + Send>()
-            .is_some());
+            .is_empty());
 
         #[cfg(not(feature = "threadsafe"))]
         assert!(registry

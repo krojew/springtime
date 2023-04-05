@@ -20,6 +20,8 @@ use crate::instance_provider::{
 use derivative::Derivative;
 use fxhash::{FxHashMap, FxHashSet};
 use itertools::Itertools;
+#[cfg(test)]
+use mockall::automock;
 use std::any::{type_name, TypeId};
 use thiserror::Error;
 
@@ -118,6 +120,7 @@ pub struct ComponentAliasMetadata {
 
 /// A registry of component definitions which can be used when requesting instances via a
 /// [ComponentInstanceProvider].
+#[cfg_attr(test, automock)]
 pub trait ComponentDefinitionRegistry {
     /// Adds a new definition for a given type. Note: handling of duplicate component names is
     /// registry-dependent. Name is used for reporting purposes.
@@ -141,7 +144,7 @@ pub trait ComponentDefinitionRegistry {
     ) -> Result<(), ComponentDefinitionRegistryError>;
 
     /// Returns all registered definitions for a given type.
-    fn components_by_type(&self, type_id: TypeId) -> Option<Vec<ComponentDefinition>>;
+    fn components_by_type(&self, type_id: TypeId) -> Vec<ComponentDefinition>;
 
     /// Returns a definition with given name.
     fn component_by_name(&self, name: &str) -> Option<ComponentDefinition>;
@@ -174,7 +177,7 @@ pub trait TypedComponentDefinitionRegistry {
     ) -> Result<(), ComponentDefinitionRegistryError>;
 
     /// Typesafe version of [ComponentDefinitionRegistry::components_by_type].
-    fn components_by_type_typed<T: Injectable + ?Sized>(&self) -> Option<Vec<ComponentDefinition>>;
+    fn components_by_type_typed<T: Injectable + ?Sized>(&self) -> Vec<ComponentDefinition>;
 
     /// Typesafe version of [ComponentDefinitionRegistry::primary_component].
     fn primary_component_typed<T: Injectable + ?Sized>(&self) -> Option<ComponentDefinition>;
@@ -207,7 +210,7 @@ impl<CDR: ComponentDefinitionRegistry + ?Sized> TypedComponentDefinitionRegistry
     }
 
     #[inline]
-    fn components_by_type_typed<T: Injectable + ?Sized>(&self) -> Option<Vec<ComponentDefinition>> {
+    fn components_by_type_typed<T: Injectable + ?Sized>(&self) -> Vec<ComponentDefinition> {
         self.components_by_type(TypeId::of::<T>())
     }
 
@@ -406,7 +409,7 @@ impl ComponentDefinitionRegistry for StaticComponentDefinitionRegistry {
     }
 
     #[inline]
-    fn components_by_type(&self, type_id: TypeId) -> Option<Vec<ComponentDefinition>> {
+    fn components_by_type(&self, type_id: TypeId) -> Vec<ComponentDefinition> {
         self.definition_map.components_by_type(type_id)
     }
 
@@ -474,11 +477,8 @@ mod registry {
                 .cloned()
         }
 
-        pub(super) fn components_by_type(
-            &self,
-            type_id: TypeId,
-        ) -> Option<Vec<ComponentDefinition>> {
-            self.definitions.get(&type_id).cloned()
+        pub(super) fn components_by_type(&self, type_id: TypeId) -> Vec<ComponentDefinition> {
+            self.definitions.get(&type_id).cloned().unwrap_or_default()
         }
 
         pub(super) fn primary_component(&self, type_id: TypeId) -> Option<ComponentDefinition> {
@@ -857,10 +857,7 @@ mod registry {
                 .try_register_component(id, "", &definition, false)
                 .unwrap();
 
-            assert_eq!(
-                registry.components_by_type(id).unwrap()[0].names,
-                definition.names
-            );
+            assert_eq!(registry.components_by_type(id)[0].names, definition.names);
             assert_eq!(
                 registry.component_by_name("name").unwrap().names,
                 definition.names
@@ -925,7 +922,7 @@ mod registry {
                 .unwrap();
 
             assert_eq!(
-                registry.components_by_type(alias_id).unwrap()[0].names,
+                registry.components_by_type(alias_id)[0].names,
                 definition.names
             );
         }
@@ -955,10 +952,7 @@ mod registry {
                 )
                 .unwrap();
 
-            assert_eq!(
-                registry.components_by_type(alias_id).unwrap()[0].scope_name,
-                "scope"
-            );
+            assert_eq!(registry.components_by_type(alias_id)[0].scope_name, "scope");
         }
 
         #[test]
@@ -1268,7 +1262,6 @@ mod tests {
 
         assert!(!registry
             .components_by_type_typed::<TestComponent>()
-            .unwrap()
             .is_empty());
         assert!(TypedComponentDefinitionRegistry::is_registered_typed::<
             TestComponent,

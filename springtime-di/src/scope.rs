@@ -12,6 +12,8 @@
 use crate::component_registry::ComponentDefinition;
 use crate::instance_provider::ComponentInstanceAnyPtr;
 use fxhash::FxHashMap;
+#[cfg(test)]
+use mockall::automock;
 use std::any::TypeId;
 
 #[cfg(not(feature = "threadsafe"))]
@@ -26,6 +28,7 @@ pub const SINGLETON: &str = "SINGLETON";
 pub const PROTOTYPE: &str = "PROTOTYPE";
 
 /// A scope containing component instances. See module documentation for information on scopes.
+#[cfg_attr(test, automock)]
 pub trait Scope {
     /// Gets an instance requested for the given definition, if available in this scope.
     fn instance(&self, definition: &ComponentDefinition) -> Option<ComponentInstanceAnyPtr>;
@@ -83,6 +86,7 @@ impl Scope for PrototypeScope {
 }
 
 /// Factory for custom [Scope]s.
+#[cfg_attr(test, automock)]
 pub trait ScopeFactory {
     fn create_scope(&self) -> ScopePtr;
 }

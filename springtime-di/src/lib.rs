@@ -37,9 +37,15 @@
 //! ```
 //!
 //! *Note:* `Send + Sync` are only required when the `threadsafe` feature is enabled.
+//!
+//! ### Features
+//!
+//! * `derive` - automatically import helper proc macros
+//! * `threadsafe` - use threadsafe pointers and `Send + Sync` trait bounds
 
 pub mod component;
 pub mod component_registry;
+pub mod factory;
 pub mod instance_provider;
 pub mod scope;
 
