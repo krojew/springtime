@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use syn::parse::{Parse, ParseStream};
 use syn::spanned::Spanned;
 use syn::{Attribute, Error, Expr, ExprArray, ExprLit, ExprPath, Lit, LitInt, LitStr, Token};
@@ -62,6 +63,27 @@ impl TryFrom<&Attribute> for FieldAttributes {
     }
 }
 
+pub struct ConstructorParameter {
+    pub component_type: String,
+    pub name: Option<String>,
+}
+
+impl From<&str> for ConstructorParameter {
+    fn from(value: &str) -> Self {
+        if let Some((component_type, name)) = value.splitn(2, '/').collect_tuple() {
+            ConstructorParameter {
+                component_type: component_type.to_string(),
+                name: Some(name.to_string()),
+            }
+        } else {
+            ConstructorParameter {
+                component_type: value.to_string(),
+                name: None,
+            }
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct ComponentAttributes {
     pub names: Option<ExprArray>,
@@ -69,6 +91,14 @@ pub struct ComponentAttributes {
     pub priority: i8,
     pub scope_name: Option<LitStr>,
     pub constructor: Option<ExprPath>,
+    pub constructor_parameters: Vec<ConstructorParameter>,
+}
+
+impl ComponentAttributes {
+    fn parse_constructor_parameters(value: &LitStr) -> Vec<ConstructorParameter> {
+        let value = value.value();
+        value.split(',').map_into().collect()
+    }
 }
 
 impl TryFrom<&Attribute> for ComponentAttributes {
@@ -128,6 +158,21 @@ impl TryFrom<&Attribute> for ComponentAttributes {
                 }) = meta.value()?.parse::<Expr>()?
                 {
                     result.scope_name = Some(string);
+                }
+            } else if meta.path.is_ident("constructor_parameters") {
+                if !result.constructor_parameters.is_empty() {
+                    return Err(Error::new(
+                        value.span(),
+                        "Constructor parameters are already defined!",
+                    ));
+                }
+
+                if let Expr::Lit(ExprLit {
+                    lit: Lit::Str(string),
+                    ..
+                }) = meta.value()?.parse::<Expr>()?
+                {
+                    result.constructor_parameters = Self::parse_constructor_parameters(&string);
                 }
             }
 

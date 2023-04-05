@@ -76,7 +76,22 @@ mod component_derive_test {
     impl TestTrait2 for TestComponent2 {}
 
     #[derive(Component)]
-    #[component(constructor = "test_component_3", scope_name = "PROTOTYPE")]
+    #[cfg_attr(
+        feature = "threadsafe",
+        component(
+            constructor = "test_component_3",
+            scope_name = "PROTOTYPE",
+            constructor_parameters = "TestComponent2,dyn TestTrait1 + Sync + Send/test_trait_1_alias_name,Vec<dyn TestTrait1 + Sync + Send>,Option<TestComponent2>"
+        )
+    )]
+    #[cfg_attr(
+        not(feature = "threadsafe"),
+        component(
+            constructor = "test_component_3",
+            scope_name = "PROTOTYPE",
+            constructor_parameters = "TestComponent2,dyn TestTrait1/test_trait_1_alias_name,Vec<dyn TestTrait1>,Option<TestComponent2>"
+        )
+    )]
     struct TestComponent3 {
         _dependency: ComponentInstancePtr<TestDependency>,
         #[component(ignore)]
@@ -89,7 +104,27 @@ mod component_derive_test {
     )]
     impl TestTrait2 for TestComponent3 {}
 
-    fn test_component_3(dependency: ComponentInstancePtr<TestDependency>) -> TestComponent3 {
+    #[cfg(feature = "threadsafe")]
+    fn test_component_3(
+        dependency: ComponentInstancePtr<TestDependency>,
+        _: ComponentInstancePtr<TestComponent2>,
+        _: ComponentInstancePtr<dyn TestTrait1 + Sync + Send>,
+        _: Vec<ComponentInstancePtr<dyn TestTrait1 + Sync + Send>>,
+        _: Option<ComponentInstancePtr<TestComponent2>>,
+    ) -> TestComponent3 {
+        TestComponent3 {
+            _dependency: dependency,
+            _ignored: 0,
+        }
+    }
+    #[cfg(not(feature = "threadsafe"))]
+    fn test_component_3(
+        dependency: ComponentInstancePtr<TestDependency>,
+        _: ComponentInstancePtr<TestComponent2>,
+        _: ComponentInstancePtr<dyn TestTrait1>,
+        _: Vec<ComponentInstancePtr<dyn TestTrait1>>,
+        _: Option<ComponentInstancePtr<TestComponent2>>,
+    ) -> TestComponent3 {
         TestComponent3 {
             _dependency: dependency,
             _ignored: 0,

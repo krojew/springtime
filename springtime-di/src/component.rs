@@ -43,6 +43,8 @@
 //! }
 //! ```
 //!
+//! Please see the examples for more usage information.
+//!
 //! ### Supported `#[component]` struct configuration
 //!
 //! * `names = ["name"]` - use given name list as the component names, instead of the auto-generated
@@ -55,6 +57,11 @@
 //! * `constructor = "expr"` - call `expr(dependencies...)` to construct the component, instead of
 //! using standard struct construction; parameters must be in the same order as fields in the struct
 //! while non-injected fields can be ignored with the `#[component(ignore)]` attribute
+//! * `constructor_parameters = "params"` - additional injectable parameters for the above
+//! constructor; the "params" string consists of comma separated definitions in format:
+//! `(Type | Type/name | Option<Type> | Option<Type>/name | Vec<Type>)`, which means (in order):
+//! primary instance of `Type`, `name`d instance of `Type`, optional primary instance of `Type`,
+//! optional `name`d instance of `Type`, all instances of `Type`
 //!
 //! ### Supported `#[component]` field configuration
 //!

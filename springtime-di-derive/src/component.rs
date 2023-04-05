@@ -1,5 +1,6 @@
 use crate::attributes::{
-    ComponentAliasAttributes, ComponentAttributes, DefaultDefinition, FieldAttributes,
+    ComponentAliasAttributes, ComponentAttributes, ConstructorParameter, DefaultDefinition,
+    FieldAttributes,
 };
 use convert_case::{Case, Casing};
 use itertools::Itertools;
@@ -8,9 +9,9 @@ use quote::quote;
 use std::ops::Deref;
 use syn::spanned::Spanned;
 use syn::{
-    Attribute, Data, DataStruct, DeriveInput, Error, Expr, ExprArray, ExprLit, ExprPath, Field,
-    Fields, FieldsNamed, FieldsUnnamed, GenericArgument, Item, Lit, LitStr, PathArguments, Result,
-    Type, TypePath, TypeTraitObject,
+    parse_str, Attribute, Data, DataStruct, DeriveInput, Error, Expr, ExprArray, ExprLit, ExprPath,
+    Field, Fields, FieldsNamed, FieldsUnnamed, GenericArgument, Item, Lit, LitStr, PathArguments,
+    Result, Type, TypePath, TypeTraitObject,
 };
 
 const COMPONENT_ATTR: &str = "component";
@@ -23,7 +24,7 @@ fn ungroup(mut ty: &Type) -> &Type {
     ty
 }
 
-fn get_wrapped_type(ty: &Type, expected_wrapper: &str) -> Option<TokenStream> {
+fn get_wrapped_type(ty: &Type, expected_wrapper: &str, require_ptr: bool) -> Option<TokenStream> {
     let path = match ungroup(ty) {
         Type::Path(ty) => &ty.path,
         _ => {
@@ -49,6 +50,11 @@ fn get_wrapped_type(ty: &Type, expected_wrapper: &str) -> Option<TokenStream> {
         return None;
     }
 
+    if !require_ptr {
+        let ty = &args[0];
+        return Some(quote!(#ty));
+    }
+
     if let GenericArgument::Type(Type::Path(TypePath { path, .. })) = &args[0] {
         if let Some(last_segment) = path.segments.last() {
             if last_segment.ident == "ComponentInstancePtr" {
@@ -65,7 +71,11 @@ fn get_wrapped_type(ty: &Type, expected_wrapper: &str) -> Option<TokenStream> {
 }
 
 fn get_injected_option_type(ty: &Type) -> Option<TokenStream> {
-    get_wrapped_type(ty, "Option")
+    get_wrapped_type(ty, "Option", true)
+}
+
+fn get_constructor_option_type(ty: &Type) -> Option<TokenStream> {
+    get_wrapped_type(ty, "Option", false)
 }
 
 fn get_injected_type(ty: &Type) -> TokenStream {
@@ -91,10 +101,14 @@ fn get_injected_type(ty: &Type) -> TokenStream {
 }
 
 fn get_injected_vec_type(ty: &Type) -> Option<TokenStream> {
-    get_wrapped_type(ty, "Vec")
+    get_wrapped_type(ty, "Vec", true)
 }
 
-fn get_single_unnamed_instance(ty: &Type) -> TokenStream {
+fn get_constructor_vec_type(ty: &Type) -> Option<TokenStream> {
+    get_wrapped_type(ty, "Vec", false)
+}
+
+fn get_unnamed_instance(ty: &Type) -> TokenStream {
     let (getter, ty) = get_injected_option_type(ty)
         .map(|ty| (quote!(primary_instance_option), ty))
         .or_else(|| get_injected_vec_type(ty).map(|ty| (quote!(instances_typed), ty)))
@@ -105,7 +119,7 @@ fn get_single_unnamed_instance(ty: &Type) -> TokenStream {
     }
 }
 
-fn get_single_named_instance(ty: &Type, name: &LitStr) -> TokenStream {
+fn get_named_instance(ty: &Type, name: &LitStr) -> TokenStream {
     let (getter, ty) = get_injected_option_type(ty)
         .map(|ty| (quote!(instance_by_name_option), ty))
         .or_else(|| get_injected_vec_type(ty).map(|ty| (quote!(instances_typed), ty)))
@@ -116,9 +130,9 @@ fn get_single_named_instance(ty: &Type, name: &LitStr) -> TokenStream {
     }
 }
 
-fn get_single_instance(ty: &Type, name: Option<&LitStr>) -> TokenStream {
-    name.map(|name| get_single_named_instance(ty, name))
-        .unwrap_or_else(|| get_single_unnamed_instance(ty))
+fn get_instance(ty: &Type, name: Option<&LitStr>) -> TokenStream {
+    name.map(|name| get_named_instance(ty, name))
+        .unwrap_or_else(|| get_unnamed_instance(ty))
 }
 
 fn generate_field_construction(field: &Field) -> Result<TokenStream> {
@@ -128,12 +142,12 @@ fn generate_field_construction(field: &Field) -> Result<TokenStream> {
             return match &attributes.default {
                 Some(DefaultDefinition::Expr(path)) => Ok(quote!(#path())),
                 Some(DefaultDefinition::Default) => Ok(quote!(std::default::Default::default())),
-                _ => Ok(get_single_instance(&field.ty, attributes.name.as_ref())),
+                _ => Ok(get_instance(&field.ty, attributes.name.as_ref())),
             };
         }
     }
 
-    Ok(get_single_instance(&field.ty, None))
+    Ok(get_instance(&field.ty, None))
 }
 
 fn make_named_struct(fields: &FieldsNamed) -> Result<TokenStream> {
@@ -175,6 +189,7 @@ fn make_unnamed_struct(fields: &FieldsUnnamed) -> Result<TokenStream> {
 
 fn generate_constructor_call_arguments<'a>(
     fields: impl Iterator<Item = &'a Field>,
+    constructor_parameters: &[ConstructorParameter],
 ) -> Result<TokenStream> {
     let fields: Vec<_> = fields
         .map(|field| {
@@ -191,20 +206,73 @@ fn generate_constructor_call_arguments<'a>(
         .map(|field| field.and_then(generate_field_construction))
         .try_collect()?;
 
+    let constructor_parameters = generate_constructor_parameters(constructor_parameters)?;
+
     Ok(quote! {
-        #(#fields),*
+        #(#fields),* #constructor_parameters
     })
 }
 
-fn make_constructor_call(fields: &Fields, constructor: &ExprPath) -> Result<TokenStream> {
+fn generate_constructor_parameters(
+    constructor_parameters: &[ConstructorParameter],
+) -> Result<TokenStream> {
+    constructor_parameters
+        .iter()
+        .map(|param| {
+            parse_str::<Type>(&param.component_type).map(|component_type| {
+                param
+                    .name
+                    .as_ref()
+                    .map(|name| {
+                        get_constructor_option_type(&component_type)
+                            .map(|component_type| {
+                                quote! {
+                                    instance_provider.instance_by_name_option::<#component_type>(#name)?
+                                }
+                            })
+                            .unwrap_or_else(|| {
+                                quote! {
+                                    instance_provider.instance_by_name_typed::<#component_type>(#name)?
+                                }
+                            })
+                    })
+                    .unwrap_or_else(|| {
+                        get_constructor_vec_type(&component_type)
+                            .map(|component_type| {
+                                quote! {
+                                    instance_provider.instances_typed::<#component_type>()?
+                                }
+                            })
+                            .or_else(|| get_constructor_option_type(&component_type)
+                                .map(|component_type| {
+                                    quote! {
+                                        instance_provider.primary_instance_option::<#component_type>()?
+                                    }
+                                }))
+                            .unwrap_or_else(|| {
+                                quote! {
+                                    instance_provider.primary_instance_typed::<#component_type>()?
+                                }
+                            })
+                    })
+            })
+        })
+        .fold_ok(quote!(), |tokens, param| quote!(#tokens, #param))
+}
+
+fn make_constructor_call(
+    fields: &Fields,
+    constructor: &ExprPath,
+    constructor_parameters: &[ConstructorParameter],
+) -> Result<TokenStream> {
     let fields = match fields {
         Fields::Named(FieldsNamed { named, .. }) => {
-            generate_constructor_call_arguments(named.iter())?
+            generate_constructor_call_arguments(named.iter(), constructor_parameters)?
         }
         Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => {
-            generate_constructor_call_arguments(unnamed.iter())?
+            generate_constructor_call_arguments(unnamed.iter(), constructor_parameters)?
         }
-        Fields::Unit => quote!(()),
+        Fields::Unit => generate_constructor_parameters(constructor_parameters)?,
     };
 
     Ok(quote! {
@@ -282,10 +350,11 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
         let attributes = extract_component_attributes(&input.attrs)?;
         let generation = if let Some(ComponentAttributes {
             constructor: Some(constructor),
+            constructor_parameters,
             ..
         }) = &attributes
         {
-            make_constructor_call(fields, constructor)?
+            make_constructor_call(fields, constructor, constructor_parameters)?
         } else {
             match fields {
                 Fields::Named(fields) => make_named_struct(fields)?,
