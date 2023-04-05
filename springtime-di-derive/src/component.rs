@@ -306,6 +306,11 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
             .as_ref()
             .map(|attributes| attributes.priority)
             .unwrap_or(0);
+        let scope_name = attributes
+            .as_ref()
+            .and_then(|attributes| attributes.scope_name.clone())
+            .map(|scope_name| quote!(#scope_name))
+            .unwrap_or_else(|| quote!(springtime_di::scope::SINGLETON));
 
         Ok(quote! {
             #[automatically_derived]
@@ -353,6 +358,7 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
                         priority: #priority,
                         metadata: ComponentMetadata {
                             names: [#(#names.to_string()),*].into_iter().collect(),
+                            scope_name: #scope_name.to_string(),
                             constructor,
                             cast,
                         },
@@ -406,6 +412,11 @@ pub fn register_component_alias(
             .as_ref()
             .map(|name| quote!(Some(#name.to_string())))
             .unwrap_or_else(|| quote!(None));
+        let scope_name = args
+            .scope_name
+            .as_ref()
+            .map(|scope_name| quote!(#scope_name))
+            .unwrap_or_else(|| quote!(springtime_di::scope::SINGLETON));
 
         #[cfg(feature = "threadsafe")]
         let trait_bounds = quote!( + Sync + Send);
@@ -445,6 +456,7 @@ pub fn register_component_alias(
                         metadata: ComponentAliasMetadata {
                             is_primary: #is_primary,
                             name: #name,
+                            scope_name: #scope_name.to_string(),
                             cast,
                         }
                     }

@@ -10,6 +10,8 @@ pub enum ComponentInstanceProviderError {
     IncompatibleComponent(TypeId),
     #[error("Cannot find named component: {0}")]
     NoNamedInstance(String),
+    #[error("Unrecognized scope: {0}")]
+    UnrecognizedScope(String),
 }
 
 /// Error related to component registries.

@@ -33,6 +33,14 @@ pub struct ComponentDefinition {
     /// and returned when requesting a single instance.
     pub is_primary: bool,
 
+    /// Which type of [Scope](crate::scope::Scope) to use when requesting given component. Please
+    /// see [scope](crate::scope) for details on scopes.
+    pub scope_name: String,
+
+    /// Concrete component type id. Since aliases can share definitions with their targets, there
+    /// can be a need to find out what is the leaf type.
+    pub resolved_type_id: TypeId,
+
     /// Constructor method for type-erased instances.
     #[derivative(Debug = "ignore")]
     pub constructor: fn(
@@ -52,6 +60,8 @@ pub struct ComponentDefinition {
 pub struct ComponentMetadata {
     pub names: FxHashSet<String>,
 
+    pub scope_name: String,
+
     #[derivative(Debug = "ignore")]
     pub constructor: fn(
         instance_provider: &mut dyn ComponentInstanceProvider,
@@ -70,6 +80,8 @@ pub struct ComponentAliasMetadata {
 
     pub name: Option<String>,
 
+    pub scope_name: String,
+
     #[derivative(Debug = "ignore")]
     pub cast: CastFunction,
 }
@@ -78,39 +90,106 @@ pub struct ComponentAliasMetadata {
 /// [ComponentInstanceProvider].
 pub trait ComponentDefinitionRegistry {
     /// Adds a new definition for a given type. Note: handling of duplicate component names is
-    /// registry-dependent.
-    fn register_component<T: Component>(
+    /// registry-dependent. Name is used for reporting purposes.
+    fn register_component(
         &mut self,
+        target: TypeId,
+        target_name: &str,
         metadata: &ComponentMetadata,
     ) -> Result<(), ComponentDefinitionRegistryError>;
 
-    /// Adds an alias `Source` for component of type `Target`. This is useful when registering
-    /// `dyn Trait` as an alias for a given concrete type. If `Source` cannot by cast to `Target`,
-    /// component creation will fail.
-    /// The optional name can be used as an alternative to the name of the concrete component,
-    /// therefore making it possible to get the component by multiple names.
-    fn register_alias<Source: ComponentDowncast<Target> + ?Sized, Target: Component>(
+    /// Adds an alias for a component of target type. This is useful when registering
+    /// `dyn Trait` as an alias for a given concrete type. If alias cannot by cast to target,
+    /// component creation will fail. Names are used for reporting purposes.
+    fn register_alias(
         &mut self,
+        alias_type: TypeId,
+        target_type: TypeId,
+        alias_name: &str,
+        target_name: &str,
         metadata: &ComponentAliasMetadata,
     ) -> Result<(), ComponentDefinitionRegistryError>;
 
     /// Returns all registered definitions for a given type.
-    fn components_by_type<T: Injectable + ?Sized>(&self) -> Option<Vec<ComponentDefinition>>;
+    fn components_by_type(&self, type_id: TypeId) -> Option<Vec<ComponentDefinition>>;
 
     /// Returns a definition with given name.
     fn component_by_name(&self, name: &str) -> Option<ComponentDefinition>;
 
     /// Returns primary component for a given type.
-    fn primary_component<T: Injectable + ?Sized>(&self) -> Option<ComponentDefinition>;
+    fn primary_component(&self, type_id: TypeId) -> Option<ComponentDefinition>;
 
     /// Checks if given type is present in this registry.
-    fn is_registered<T: Injectable>(&self) -> bool;
+    fn is_registered(&self, type_id: TypeId) -> bool;
 
     /// Checks if there's a definition with given name.
     fn is_name_registered(&self, name: &str) -> bool;
 
     /// Returns a copy of the whole registry as a map.
     fn all_definitions(&self) -> FxHashMap<TypeId, Vec<ComponentDefinition>>;
+}
+
+/// Helper trait for [ComponentDefinitionRegistry] providing strongly-typed access.
+pub trait TypedComponentDefinitionRegistry {
+    /// Typesafe version of [ComponentDefinitionRegistry::register_component].
+    fn register_component_typed<T: Component>(
+        &mut self,
+        metadata: &ComponentMetadata,
+    ) -> Result<(), ComponentDefinitionRegistryError>;
+
+    /// Typesafe version of [ComponentDefinitionRegistry::register_alias].
+    fn register_alias_typed<Source: ComponentDowncast<Target> + ?Sized, Target: Component>(
+        &mut self,
+        metadata: &ComponentAliasMetadata,
+    ) -> Result<(), ComponentDefinitionRegistryError>;
+
+    /// Typesafe version of [ComponentDefinitionRegistry::components_by_type].
+    fn components_by_type_typed<T: Injectable + ?Sized>(&self) -> Option<Vec<ComponentDefinition>>;
+
+    /// Typesafe version of [ComponentDefinitionRegistry::primary_component].
+    fn primary_component_typed<T: Injectable + ?Sized>(&self) -> Option<ComponentDefinition>;
+
+    /// Typesafe version of [ComponentDefinitionRegistry::is_registered].
+    fn is_registered_typed<T: Injectable>(&self) -> bool;
+}
+
+impl<CDR: ComponentDefinitionRegistry + ?Sized> TypedComponentDefinitionRegistry for CDR {
+    #[inline]
+    fn register_component_typed<T: Component>(
+        &mut self,
+        metadata: &ComponentMetadata,
+    ) -> Result<(), ComponentDefinitionRegistryError> {
+        self.register_component(TypeId::of::<T>(), type_name::<T>(), metadata)
+    }
+
+    #[inline]
+    fn register_alias_typed<Source: ComponentDowncast<Target> + ?Sized, Target: Component>(
+        &mut self,
+        metadata: &ComponentAliasMetadata,
+    ) -> Result<(), ComponentDefinitionRegistryError> {
+        self.register_alias(
+            TypeId::of::<Source>(),
+            TypeId::of::<Target>(),
+            type_name::<Source>(),
+            type_name::<Target>(),
+            metadata,
+        )
+    }
+
+    #[inline]
+    fn components_by_type_typed<T: Injectable + ?Sized>(&self) -> Option<Vec<ComponentDefinition>> {
+        self.components_by_type(TypeId::of::<T>())
+    }
+
+    #[inline]
+    fn primary_component_typed<T: Injectable + ?Sized>(&self) -> Option<ComponentDefinition> {
+        self.primary_component(TypeId::of::<T>())
+    }
+
+    #[inline]
+    fn is_registered_typed<T: Injectable>(&self) -> bool {
+        self.is_registered(TypeId::of::<T>())
+    }
 }
 
 /// Registry of component definitions initialized from statically registered definitions.
@@ -262,36 +341,43 @@ impl StaticComponentDefinitionRegistry {
 }
 
 impl ComponentDefinitionRegistry for StaticComponentDefinitionRegistry {
-    fn register_component<T: Component>(
+    #[inline]
+    fn register_component(
         &mut self,
+        target: TypeId,
+        target_name: &str,
         metadata: &ComponentMetadata,
     ) -> Result<(), ComponentDefinitionRegistryError> {
         self.definition_map.try_register_component(
-            TypeId::of::<T>(),
-            type_name::<T>(),
+            target,
+            target_name,
             metadata,
             self.allow_definition_overriding,
         )
     }
 
     #[inline]
-    fn register_alias<Source: ComponentDowncast<Target> + ?Sized, Target: Component>(
+    fn register_alias(
         &mut self,
+        alias_type: TypeId,
+        target_type: TypeId,
+        alias_name: &str,
+        target_name: &str,
         metadata: &ComponentAliasMetadata,
     ) -> Result<(), ComponentDefinitionRegistryError> {
         self.definition_map.try_register_alias(
-            TypeId::of::<Source>(),
-            TypeId::of::<Target>(),
-            type_name::<Source>(),
-            type_name::<Target>(),
+            alias_type,
+            target_type,
+            alias_name,
+            target_name,
             metadata,
             self.allow_definition_overriding,
         )
     }
 
     #[inline]
-    fn components_by_type<T: Injectable + ?Sized>(&self) -> Option<Vec<ComponentDefinition>> {
-        self.definition_map.components_by_type(TypeId::of::<T>())
+    fn components_by_type(&self, type_id: TypeId) -> Option<Vec<ComponentDefinition>> {
+        self.definition_map.components_by_type(type_id)
     }
 
     #[inline]
@@ -299,13 +385,14 @@ impl ComponentDefinitionRegistry for StaticComponentDefinitionRegistry {
         self.definition_map.component_by_name(name)
     }
 
-    fn primary_component<T: Injectable + ?Sized>(&self) -> Option<ComponentDefinition> {
-        self.definition_map.primary_component(TypeId::of::<T>())
+    #[inline]
+    fn primary_component(&self, type_id: TypeId) -> Option<ComponentDefinition> {
+        self.definition_map.primary_component(type_id)
     }
 
     #[inline]
-    fn is_registered<T: Injectable>(&self) -> bool {
-        <Self as ComponentDefinitionRegistryFacade>::is_registered(self, TypeId::of::<T>())
+    fn is_registered(&self, type_id: TypeId) -> bool {
+        <Self as ComponentDefinitionRegistryFacade>::is_registered(self, type_id)
     }
 
     #[inline]
@@ -412,9 +499,10 @@ mod registry {
                 );
             }
 
+            // should run once due to above anyway
             for definition in &mut target_definitions {
-                // should run once due to above anyway
                 definition.is_primary = metadata.is_primary;
+                definition.scope_name = metadata.scope_name.clone();
             }
 
             if let Some(name) = &metadata.name {
@@ -498,6 +586,8 @@ mod registry {
             let definition = ComponentDefinition {
                 names: metadata.names.clone(),
                 is_primary: false,
+                scope_name: metadata.scope_name.clone(),
+                resolved_type_id: target,
                 constructor: metadata.constructor,
                 cast: metadata.cast,
             };
@@ -577,6 +667,7 @@ mod registry {
             (
                 ComponentMetadata {
                     names: ["name".to_string()].into_iter().collect(),
+                    scope_name: "".to_string(),
                     constructor,
                     cast,
                 },
@@ -588,6 +679,7 @@ mod registry {
         fn should_reject_alias_name_for_ambiguous_target() {
             let definition = ComponentMetadata {
                 names: Default::default(),
+                scope_name: "".to_string(),
                 constructor,
                 cast,
             };
@@ -612,6 +704,7 @@ mod registry {
                     &ComponentAliasMetadata {
                         is_primary: false,
                         name: None,
+                        scope_name: "".to_string(),
                         cast,
                     },
                     false,
@@ -626,6 +719,7 @@ mod registry {
                     &ComponentAliasMetadata {
                         is_primary: false,
                         name: None,
+                        scope_name: "".to_string(),
                         cast,
                     },
                     false,
@@ -642,6 +736,7 @@ mod registry {
                         &ComponentAliasMetadata {
                             is_primary: false,
                             name: Some("alias_name".to_string()),
+                            scope_name: "".to_string(),
                             cast,
                         },
                         false,
@@ -655,6 +750,7 @@ mod registry {
         fn should_reject_primary_alias_for_ambiguous_target() {
             let definition = ComponentMetadata {
                 names: Default::default(),
+                scope_name: "".to_string(),
                 constructor,
                 cast,
             };
@@ -679,6 +775,7 @@ mod registry {
                     &ComponentAliasMetadata {
                         is_primary: false,
                         name: None,
+                        scope_name: "".to_string(),
                         cast,
                     },
                     false,
@@ -693,6 +790,7 @@ mod registry {
                     &ComponentAliasMetadata {
                         is_primary: false,
                         name: None,
+                        scope_name: "".to_string(),
                         cast,
                     },
                     false,
@@ -709,6 +807,7 @@ mod registry {
                         &ComponentAliasMetadata {
                             is_primary: true,
                             name: None,
+                            scope_name: "".to_string(),
                             cast,
                         },
                         false,
@@ -787,6 +886,7 @@ mod registry {
                     &ComponentAliasMetadata {
                         is_primary: false,
                         name: None,
+                        scope_name: "".to_string(),
                         cast,
                     },
                     false,
@@ -796,6 +896,37 @@ mod registry {
             assert_eq!(
                 registry.components_by_type(alias_id).unwrap()[0].names,
                 definition.names
+            );
+        }
+
+        #[test]
+        fn should_register_alias_scope() {
+            let (definition, id) = create_metadata();
+            let alias_id = TypeId::of::<u8>();
+
+            let mut registry = NamedComponentDefinitionMap::default();
+            registry
+                .try_register_component(id, "", &definition, false)
+                .unwrap();
+            registry
+                .try_register_alias(
+                    alias_id,
+                    id,
+                    "",
+                    "",
+                    &ComponentAliasMetadata {
+                        is_primary: false,
+                        name: None,
+                        scope_name: "scope".to_string(),
+                        cast,
+                    },
+                    false,
+                )
+                .unwrap();
+
+            assert_eq!(
+                registry.components_by_type(alias_id).unwrap()[0].scope_name,
+                "scope"
             );
         }
 
@@ -817,6 +948,7 @@ mod registry {
                     &ComponentAliasMetadata {
                         is_primary: false,
                         name: Some("alias".to_string()),
+                        scope_name: "".to_string(),
                         cast,
                     },
                     false,
@@ -844,6 +976,7 @@ mod registry {
                     &ComponentAliasMetadata {
                         is_primary: true,
                         name: None,
+                        scope_name: "".to_string(),
                         cast,
                     },
                     false,
@@ -860,6 +993,7 @@ mod registry {
                         &ComponentAliasMetadata {
                             is_primary: true,
                             name: None,
+                            scope_name: "".to_string(),
                             cast
                         },
                         false
@@ -887,6 +1021,7 @@ mod registry {
                     &ComponentAliasMetadata {
                         is_primary: false,
                         name: None,
+                        scope_name: "".to_string(),
                         cast,
                     },
                     false,
@@ -918,6 +1053,7 @@ mod registry {
                     &ComponentAliasMetadata {
                         is_primary: false,
                         name: None,
+                        scope_name: "".to_string(),
                         cast,
                     },
                     false,
@@ -932,6 +1068,7 @@ mod registry {
                     &ComponentAliasMetadata {
                         is_primary: true,
                         name: None,
+                        scope_name: "".to_string(),
                         cast,
                     },
                     false,
@@ -963,6 +1100,7 @@ mod registry {
                     &ComponentAliasMetadata {
                         is_primary: false,
                         name: None,
+                        scope_name: "".to_string(),
                         cast,
                     },
                     false,
@@ -977,6 +1115,7 @@ mod registry {
                     &ComponentAliasMetadata {
                         is_primary: false,
                         name: None,
+                        scope_name: "".to_string(),
                         cast,
                     },
                     false,
@@ -1037,7 +1176,7 @@ mod tests {
     };
     use crate::component_registry::{
         ComponentDefinition, ComponentDefinitionRegistry, ComponentMetadata,
-        StaticComponentDefinitionRegistry,
+        StaticComponentDefinitionRegistry, TypedComponentDefinitionRegistry,
     };
     use crate::error::{ComponentDefinitionRegistryError, ComponentInstanceProviderError};
     use crate::instance_provider::{
@@ -1087,20 +1226,21 @@ mod tests {
             StaticComponentDefinitionRegistry::new(false, &SimpleContextFactory::default())
                 .unwrap();
         registry
-            .register_component::<TestComponent>(&ComponentMetadata {
+            .register_component_typed::<TestComponent>(&ComponentMetadata {
                 names: ["a".to_string()].into_iter().collect(),
+                scope_name: "".to_string(),
                 constructor: test_constructor,
                 cast: test_cast,
             })
             .unwrap();
 
         assert!(!registry
-            .components_by_type::<TestComponent>()
+            .components_by_type_typed::<TestComponent>()
             .unwrap()
             .is_empty());
-        assert!(ComponentDefinitionRegistry::is_registered::<TestComponent>(
-            &registry
-        ));
+        assert!(TypedComponentDefinitionRegistry::is_registered_typed::<
+            TestComponent,
+        >(&registry));
         assert!(ComponentDefinitionRegistryFacade::is_registered(
             &registry,
             TypeId::of::<TestComponent>()
@@ -1115,6 +1255,8 @@ mod tests {
         let definition = ComponentDefinition {
             names: ["name".to_string()].into_iter().collect(),
             is_primary: false,
+            scope_name: "".to_string(),
+            resolved_type_id: TypeId::of::<TestComponent>(),
             constructor: test_constructor,
             cast: test_cast,
         };
@@ -1123,8 +1265,9 @@ mod tests {
             StaticComponentDefinitionRegistry::new(false, &SimpleContextFactory::default())
                 .unwrap();
         registry
-            .register_component::<TestComponent>(&ComponentMetadata {
+            .register_component_typed::<TestComponent>(&ComponentMetadata {
                 names: definition.names.clone(),
+                scope_name: "".to_string(),
                 constructor: test_constructor,
                 cast: test_cast,
             })
@@ -1132,8 +1275,9 @@ mod tests {
 
         assert_eq!(
             registry
-                .register_component::<TestComponent>(&ComponentMetadata {
+                .register_component_typed::<TestComponent>(&ComponentMetadata {
                     names: definition.names,
+                    scope_name: "".to_string(),
                     constructor: test_constructor,
                     cast: test_cast,
                 })
@@ -1147,15 +1291,17 @@ mod tests {
         let mut registry =
             StaticComponentDefinitionRegistry::new(true, &SimpleContextFactory::default()).unwrap();
         registry
-            .register_component::<TestComponent>(&ComponentMetadata {
+            .register_component_typed::<TestComponent>(&ComponentMetadata {
                 names: ["name".to_string()].into_iter().collect(),
+                scope_name: "".to_string(),
                 constructor: test_constructor,
                 cast: test_cast,
             })
             .unwrap();
         registry
-            .register_component::<TestComponent>(&ComponentMetadata {
+            .register_component_typed::<TestComponent>(&ComponentMetadata {
                 names: ["name2".to_string()].into_iter().collect(),
+                scope_name: "".to_string(),
                 constructor: test_constructor,
                 cast: test_cast,
             })

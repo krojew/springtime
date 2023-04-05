@@ -67,6 +67,7 @@ pub struct ComponentAttributes {
     pub names: Option<ExprArray>,
     pub condition: Option<ExprPath>,
     pub priority: i8,
+    pub scope_name: Option<LitStr>,
     pub constructor: Option<ExprPath>,
 }
 
@@ -110,11 +111,23 @@ impl TryFrom<&Attribute> for ComponentAttributes {
                 }
 
                 if let Expr::Lit(ExprLit {
-                    lit: Lit::Str(path),
+                    lit: Lit::Str(string),
                     ..
                 }) = meta.value()?.parse::<Expr>()?
                 {
-                    result.constructor = Some(path.parse()?);
+                    result.constructor = Some(string.parse()?);
+                }
+            } else if meta.path.is_ident("scope_name") {
+                if result.scope_name.is_some() {
+                    return Err(Error::new(value.span(), "Scope type is already defined!"));
+                }
+
+                if let Expr::Lit(ExprLit {
+                    lit: Lit::Str(string),
+                    ..
+                }) = meta.value()?.parse::<Expr>()?
+                {
+                    result.scope_name = Some(string);
                 }
             }
 
@@ -131,6 +144,7 @@ pub struct ComponentAliasAttributes {
     pub condition: Option<ExprPath>,
     pub priority: i8,
     pub name: Option<LitStr>,
+    pub scope_name: Option<LitStr>,
 }
 
 impl Parse for ComponentAliasAttributes {
@@ -163,6 +177,12 @@ impl Parse for ComponentAliasAttributes {
                 }
 
                 result.name = Some(input.parse::<LitArg<kw::name, LitStr>>()?.value);
+            } else if lookahead.peek(kw::scope_name) {
+                if result.scope_name.is_some() {
+                    return Err(Error::new(input.span(), "Scope type is already defined!"));
+                }
+
+                result.scope_name = Some(input.parse::<LitArg<kw::scope_name, LitStr>>()?.value);
             } else if lookahead.peek(Token![,]) {
                 let _ = input.parse::<Token![,]>()?;
             } else {
@@ -198,4 +218,5 @@ mod kw {
     custom_keyword!(condition);
     custom_keyword!(priority);
     custom_keyword!(name);
+    custom_keyword!(scope_name);
 }

@@ -148,11 +148,13 @@ mod tests {
         let context = SimpleContext {
             registry: &registry,
         };
-        let metadata = ConditionMetadata::Alias(&ComponentAliasMetadata {
+        let metadata = ComponentAliasMetadata {
             is_primary: false,
             name: None,
+            scope_name: "".to_string(),
             cast: test_cast,
-        });
+        };
+        let metadata = ConditionMetadata::Alias(&metadata);
 
         assert!(registered_component::<TestComponent>(&context, metadata));
         assert!(!unregistered_component::<TestComponent>(&context, metadata));
@@ -185,6 +187,7 @@ mod tests {
 
         let metadata = ComponentMetadata {
             names: ["n2".to_string(), "n1".to_string()].into_iter().collect(),
+            scope_name: "".to_string(),
             constructor: test_constructor,
             cast: test_cast,
         };
@@ -195,6 +198,7 @@ mod tests {
         let metadata = ComponentAliasMetadata {
             is_primary: false,
             name: Some("n1".to_string()),
+            scope_name: "".to_string(),
             cast: test_cast,
         };
         let metadata = ConditionMetadata::Alias(&metadata);
@@ -204,6 +208,7 @@ mod tests {
         let metadata = ComponentAliasMetadata {
             is_primary: false,
             name: Some("n3".to_string()),
+            scope_name: "".to_string(),
             cast: test_cast,
         };
         let metadata = ConditionMetadata::Alias(&metadata);

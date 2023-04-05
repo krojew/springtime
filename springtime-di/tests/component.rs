@@ -6,6 +6,7 @@ mod component_derive_test {
     };
     use springtime_di::component_registry::{
         ComponentDefinitionRegistry, StaticComponentDefinitionRegistry,
+        TypedComponentDefinitionRegistry,
     };
     use springtime_di::error::ComponentInstanceProviderError;
     use springtime_di::instance_provider::{
@@ -75,7 +76,7 @@ mod component_derive_test {
     impl TestTrait2 for TestComponent2 {}
 
     #[derive(Component)]
-    #[component(constructor = "test_component_3")]
+    #[component(constructor = "test_component_3", scope_name = "PROTOTYPE")]
     struct TestComponent3 {
         _dependency: ComponentInstancePtr<TestDependency>,
         #[component(ignore)]
@@ -200,7 +201,7 @@ mod component_derive_test {
         let registry =
             StaticComponentDefinitionRegistry::new(false, &SimpleContextFactory::default())
                 .unwrap();
-        assert!(!ComponentDefinitionRegistry::is_registered::<
+        assert!(!TypedComponentDefinitionRegistry::is_registered_typed::<
             DisabledComponent,
         >(&registry));
     }
@@ -217,22 +218,30 @@ mod component_derive_test {
         let registry =
             StaticComponentDefinitionRegistry::new(false, &SimpleContextFactory::default())
                 .unwrap();
-        assert!(registry.components_by_type::<TestDependency>().is_some());
-        assert!(registry.components_by_type::<TestComponent2>().is_some());
+        assert!(registry
+            .components_by_type_typed::<TestDependency>()
+            .is_some());
+        assert!(registry
+            .components_by_type_typed::<TestComponent2>()
+            .is_some());
 
         #[cfg(feature = "threadsafe")]
         assert!(registry
-            .components_by_type::<dyn TestTrait1 + Sync + Send>()
+            .components_by_type_typed::<dyn TestTrait1 + Sync + Send>()
             .is_some());
         #[cfg(feature = "threadsafe")]
         assert!(registry
-            .components_by_type::<dyn TestTrait2 + Sync + Send>()
+            .components_by_type_typed::<dyn TestTrait2 + Sync + Send>()
             .is_some());
 
         #[cfg(not(feature = "threadsafe"))]
-        assert!(registry.components_by_type::<dyn TestTrait1>().is_some());
+        assert!(registry
+            .components_by_type_typed::<dyn TestTrait1>()
+            .is_some());
         #[cfg(not(feature = "threadsafe"))]
-        assert!(registry.components_by_type::<dyn TestTrait2>().is_some());
+        assert!(registry
+            .components_by_type_typed::<dyn TestTrait2>()
+            .is_some());
     }
 
     #[test]
