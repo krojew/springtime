@@ -103,7 +103,7 @@ mod tests {
         MockComponentDefinitionRegistryFacade, SimpleContext,
     };
     use crate::component_registry::{ComponentAliasMetadata, ComponentMetadata};
-    use crate::error::ComponentInstanceProviderError;
+    use crate::instance_provider::ComponentInstanceProviderError;
     use crate::instance_provider::{ComponentInstanceAnyPtr, ComponentInstanceProvider};
     use mockall::predicate::*;
     use mockall::Sequence;

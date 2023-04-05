@@ -2,7 +2,6 @@
 //! instances.
 
 use crate::component::Injectable;
-use crate::error::ComponentInstanceProviderError;
 use itertools::Itertools;
 #[cfg(test)]
 use mockall::automock;
@@ -11,6 +10,20 @@ use std::any::{Any, TypeId};
 use std::rc::Rc;
 #[cfg(feature = "threadsafe")]
 use std::sync::Arc;
+use thiserror::Error;
+
+/// Errors related to creating and managing components.
+#[derive(Error, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
+pub enum ComponentInstanceProviderError {
+    #[error("Cannot find a primary instance for component '{0:?}' - either none or multiple exists without a primary marker.")]
+    NoPrimaryInstance(TypeId),
+    #[error("Tried to downcast component to incompatible type: {0:?}")]
+    IncompatibleComponent(TypeId),
+    #[error("Cannot find named component: {0}")]
+    NoNamedInstance(String),
+    #[error("Unrecognized scope: {0}")]
+    UnrecognizedScope(String),
+}
 
 #[cfg(not(feature = "threadsafe"))]
 pub type ComponentInstancePtr<T> = Rc<T>;

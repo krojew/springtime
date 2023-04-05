@@ -108,7 +108,7 @@ impl ScopeFactory for PrototypeScopeFactory {
 #[cfg(test)]
 mod tests {
     use crate::component_registry::ComponentDefinition;
-    use crate::error::ComponentInstanceProviderError;
+    use crate::instance_provider::ComponentInstanceProviderError;
     use crate::instance_provider::{
         ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
     };

@@ -8,7 +8,7 @@ mod component_derive_test {
         ComponentDefinitionRegistry, StaticComponentDefinitionRegistry,
         TypedComponentDefinitionRegistry,
     };
-    use springtime_di::error::ComponentInstanceProviderError;
+    use springtime_di::instance_provider::ComponentInstanceProviderError;
     use springtime_di::instance_provider::{
         CastFunction, ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
     };

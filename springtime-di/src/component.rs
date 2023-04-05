@@ -103,7 +103,7 @@
 //! default is 0)
 //! * `name = "name"` - optional name, which should be associated with the given alias
 
-use crate::error::ComponentInstanceProviderError;
+use crate::instance_provider::ComponentInstanceProviderError;
 use crate::instance_provider::{
     ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
 };

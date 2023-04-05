@@ -13,12 +13,42 @@ use crate::component_registry::internal::{
     TypedComponentDefinition,
 };
 use crate::component_registry::registry::NamedComponentDefinitionMap;
-use crate::error::{ComponentDefinitionRegistryError, ComponentInstanceProviderError};
-use crate::instance_provider::{CastFunction, ComponentInstanceAnyPtr, ComponentInstanceProvider};
+use crate::instance_provider::{
+    CastFunction, ComponentInstanceAnyPtr, ComponentInstanceProvider,
+    ComponentInstanceProviderError,
+};
 use derivative::Derivative;
 use fxhash::{FxHashMap, FxHashSet};
 use itertools::Itertools;
 use std::any::{type_name, TypeId};
+use thiserror::Error;
+
+/// Error related to component registries.
+#[derive(Error, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
+pub enum ComponentDefinitionRegistryError {
+    #[error("Attempted to register a duplicated component with name: {0}")]
+    DuplicateComponentName(String),
+    #[error("Attempted to re-register a concrete component type: {0}")]
+    DuplicateComponentType(String),
+    #[error("Missing base component of type {target_type} for alias: {alias_type}")]
+    MissingBaseComponent {
+        alias_type: String,
+        target_type: String,
+    },
+    #[error(
+        "Registering a duplicate primary component of type {target_type} for alias: {alias_type}"
+    )]
+    DuplicatePrimaryComponent {
+        alias_type: String,
+        target_type: String,
+    },
+    #[error("Cannot register alias {alias_type} named {name} for multiple targets: {target_type}")]
+    CannotRegisterNamedAliasForAmbiguousTarget {
+        alias_type: String,
+        target_type: String,
+        name: String,
+    },
+}
 
 /// Definition for a [Component] registered in a definition registry.
 #[derive(Derivative, Clone)]
@@ -419,10 +449,10 @@ impl ComponentDefinitionRegistryFacade for StaticComponentDefinitionRegistry {
 }
 
 mod registry {
+    use crate::component_registry::ComponentDefinitionRegistryError;
     use crate::component_registry::{
         ComponentAliasMetadata, ComponentDefinition, ComponentMetadata,
     };
-    use crate::error::ComponentDefinitionRegistryError;
     use fxhash::FxHashMap;
     use std::any::TypeId;
 
@@ -644,10 +674,11 @@ mod registry {
     #[cfg(test)]
     mod tests {
         use crate::component_registry::registry::NamedComponentDefinitionMap;
+        use crate::component_registry::ComponentDefinitionRegistryError;
         use crate::component_registry::{ComponentAliasMetadata, ComponentMetadata};
-        use crate::error::{ComponentDefinitionRegistryError, ComponentInstanceProviderError};
         use crate::instance_provider::{
-            ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
+            ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstanceProviderError,
+            ComponentInstancePtr,
         };
         use std::any::{Any, TypeId};
 
@@ -1174,13 +1205,14 @@ mod tests {
     use crate::component_registry::conditional::{
         ComponentDefinitionRegistryFacade, SimpleContextFactory,
     };
+    use crate::component_registry::ComponentDefinitionRegistryError;
     use crate::component_registry::{
         ComponentDefinition, ComponentDefinitionRegistry, ComponentMetadata,
         StaticComponentDefinitionRegistry, TypedComponentDefinitionRegistry,
     };
-    use crate::error::{ComponentDefinitionRegistryError, ComponentInstanceProviderError};
     use crate::instance_provider::{
-        ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
+        ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstanceProviderError,
+        ComponentInstancePtr,
     };
     use std::any::{Any, TypeId};
 
