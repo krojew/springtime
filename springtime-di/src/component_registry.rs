@@ -61,7 +61,7 @@ pub struct ComponentDefinition {
 
     /// Which type of [Scope](crate::scope::Scope) to use when requesting given component. Please
     /// see [scope](crate::scope) for details on scopes.
-    pub scope_name: String,
+    pub scope: String,
 
     /// Concrete component type id. Since aliases can share definitions with their targets, there
     /// can be a need to find out what is the leaf type.
@@ -86,7 +86,7 @@ pub struct ComponentDefinition {
 pub struct ComponentMetadata {
     pub names: FxHashSet<String>,
 
-    pub scope_name: String,
+    pub scope: String,
 
     #[derivative(Debug = "ignore")]
     pub constructor: fn(
@@ -104,7 +104,7 @@ pub struct ComponentMetadata {
 pub struct ComponentAliasMetadata {
     pub is_primary: bool,
 
-    pub scope_name: Option<String>,
+    pub scope: Option<String>,
 
     #[derivative(Debug = "ignore")]
     pub cast: CastFunction,
@@ -555,8 +555,8 @@ mod registry {
                 definition.is_primary = metadata.is_primary;
                 definition.cast = metadata.cast;
 
-                if let Some(scope_name) = &metadata.scope_name {
-                    definition.scope_name = scope_name.clone();
+                if let Some(scope) = &metadata.scope {
+                    definition.scope = scope.clone();
                 }
             }
 
@@ -606,7 +606,7 @@ mod registry {
             let definition = ComponentDefinition {
                 names: metadata.names.clone(),
                 is_primary: false,
-                scope_name: metadata.scope_name.clone(),
+                scope: metadata.scope.clone(),
                 resolved_type_id: target,
                 constructor: metadata.constructor,
                 cast: metadata.cast,
@@ -687,7 +687,7 @@ mod registry {
             (
                 ComponentMetadata {
                     names: ["name".to_string()].into_iter().collect(),
-                    scope_name: "".to_string(),
+                    scope: "".to_string(),
                     constructor,
                     cast,
                 },
@@ -699,7 +699,7 @@ mod registry {
         fn should_reject_primary_alias_for_ambiguous_target() {
             let definition = ComponentMetadata {
                 names: Default::default(),
-                scope_name: "".to_string(),
+                scope: "".to_string(),
                 constructor,
                 cast,
             };
@@ -723,7 +723,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: false,
-                        scope_name: None,
+                        scope: None,
                         cast,
                     },
                 )
@@ -736,7 +736,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: false,
-                        scope_name: None,
+                        scope: None,
                         cast,
                     },
                 )
@@ -751,7 +751,7 @@ mod registry {
                         "",
                         &ComponentAliasMetadata {
                             is_primary: true,
-                            scope_name: None,
+                            scope: None,
                             cast,
                         },
                     )
@@ -825,7 +825,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: false,
-                        scope_name: None,
+                        scope: None,
                         cast,
                     },
                 )
@@ -854,13 +854,13 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: false,
-                        scope_name: Some("scope".to_string()),
+                        scope: Some("scope".to_string()),
                         cast,
                     },
                 )
                 .unwrap();
 
-            assert_eq!(registry.components_by_type(alias_id)[0].scope_name, "scope");
+            assert_eq!(registry.components_by_type(alias_id)[0].scope, "scope");
         }
 
         #[test]
@@ -880,7 +880,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: true,
-                        scope_name: None,
+                        scope: None,
                         cast,
                     },
                 )
@@ -895,7 +895,7 @@ mod registry {
                         "",
                         &ComponentAliasMetadata {
                             is_primary: true,
-                            scope_name: None,
+                            scope: None,
                             cast
                         },
                     )
@@ -921,7 +921,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: false,
-                        scope_name: None,
+                        scope: None,
                         cast,
                     },
                 )
@@ -951,7 +951,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: false,
-                        scope_name: None,
+                        scope: None,
                         cast,
                     },
                 )
@@ -964,7 +964,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: true,
-                        scope_name: None,
+                        scope: None,
                         cast,
                     },
                 )
@@ -994,7 +994,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: false,
-                        scope_name: None,
+                        scope: None,
                         cast,
                     },
                 )
@@ -1007,7 +1007,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: false,
-                        scope_name: None,
+                        scope: None,
                         cast,
                     },
                 )
@@ -1120,7 +1120,7 @@ mod tests {
         registry
             .register_component_typed::<TestComponent>(&ComponentMetadata {
                 names: ["a".to_string()].into_iter().collect(),
-                scope_name: "".to_string(),
+                scope: "".to_string(),
                 constructor: test_constructor,
                 cast: test_cast,
             })
@@ -1146,7 +1146,7 @@ mod tests {
         let definition = ComponentDefinition {
             names: ["name".to_string()].into_iter().collect(),
             is_primary: false,
-            scope_name: "".to_string(),
+            scope: "".to_string(),
             resolved_type_id: TypeId::of::<TestComponent>(),
             constructor: test_constructor,
             cast: test_cast,
@@ -1158,7 +1158,7 @@ mod tests {
         registry
             .register_component_typed::<TestComponent>(&ComponentMetadata {
                 names: definition.names.clone(),
-                scope_name: "".to_string(),
+                scope: "".to_string(),
                 constructor: test_constructor,
                 cast: test_cast,
             })
@@ -1168,7 +1168,7 @@ mod tests {
             registry
                 .register_component_typed::<TestComponent>(&ComponentMetadata {
                     names: definition.names,
-                    scope_name: "".to_string(),
+                    scope: "".to_string(),
                     constructor: test_constructor,
                     cast: test_cast,
                 })
@@ -1184,7 +1184,7 @@ mod tests {
         registry
             .register_component_typed::<TestComponent>(&ComponentMetadata {
                 names: ["name".to_string()].into_iter().collect(),
-                scope_name: "".to_string(),
+                scope: "".to_string(),
                 constructor: test_constructor,
                 cast: test_cast,
             })
@@ -1192,7 +1192,7 @@ mod tests {
         registry
             .register_component_typed::<TestComponent>(&ComponentMetadata {
                 names: ["name2".to_string()].into_iter().collect(),
-                scope_name: "".to_string(),
+                scope: "".to_string(),
                 constructor: test_constructor,
                 cast: test_cast,
             })

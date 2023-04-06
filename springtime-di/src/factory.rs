@@ -125,20 +125,15 @@ impl ComponentFactory {
         }
 
         let scope = {
-            if let Some(scope) = self.scopes.get(&definition.scope_name) {
+            if let Some(scope) = self.scopes.get(&definition.scope) {
                 scope
             } else {
-                let factory = self
-                    .scope_factories
-                    .get(&definition.scope_name)
-                    .ok_or_else(|| {
-                        ComponentInstanceProviderError::UnrecognizedScope(
-                            definition.scope_name.to_string(),
-                        )
-                    })?;
+                let factory = self.scope_factories.get(&definition.scope).ok_or_else(|| {
+                    ComponentInstanceProviderError::UnrecognizedScope(definition.scope.to_string())
+                })?;
 
                 self.scopes
-                    .entry(definition.scope_name.clone())
+                    .entry(definition.scope.clone())
                     .or_insert(factory.create_scope())
             }
         };
@@ -158,8 +153,8 @@ impl ComponentFactory {
 
         let instance = instance?;
 
-        let scope = self.scopes.get_mut(&definition.scope_name).ok_or_else(|| {
-            ComponentInstanceProviderError::UnrecognizedScope(definition.scope_name.to_string())
+        let scope = self.scopes.get_mut(&definition.scope).ok_or_else(|| {
+            ComponentInstanceProviderError::UnrecognizedScope(definition.scope.to_string())
         })?;
 
         scope.store_instance(definition, instance.clone());
@@ -253,7 +248,7 @@ mod tests {
             ComponentDefinition {
                 names: ["name".to_string()].into_iter().collect(),
                 is_primary: false,
-                scope_name: PROTOTYPE.to_string(),
+                scope: PROTOTYPE.to_string(),
                 resolved_type_id: TypeId::of::<i8>(),
                 constructor,
                 cast,
@@ -297,7 +292,7 @@ mod tests {
         let definition = ComponentDefinition {
             names: Default::default(),
             is_primary: false,
-            scope_name: PROTOTYPE.to_string(),
+            scope: PROTOTYPE.to_string(),
             resolved_type_id: TypeId::of::<i8>(),
             constructor: recursive_constructor,
             cast,
@@ -341,7 +336,7 @@ mod tests {
         let definition = ComponentDefinition {
             names: Default::default(),
             is_primary: false,
-            scope_name: SINGLETON.to_string(),
+            scope: SINGLETON.to_string(),
             resolved_type_id: TypeId::of::<i8>(),
             constructor,
             cast,
@@ -367,7 +362,7 @@ mod tests {
         let definition = ComponentDefinition {
             names: Default::default(),
             is_primary: false,
-            scope_name: PROTOTYPE.to_string(),
+            scope: PROTOTYPE.to_string(),
             resolved_type_id: TypeId::of::<i8>(),
             constructor: error_constructor,
             cast,

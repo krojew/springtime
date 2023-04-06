@@ -89,7 +89,7 @@ pub struct ComponentAttributes {
     pub names: Option<ExprArray>,
     pub condition: Option<ExprPath>,
     pub priority: i8,
-    pub scope_name: Option<LitStr>,
+    pub scope: Option<LitStr>,
     pub constructor: Option<ExprPath>,
     pub constructor_parameters: Vec<ConstructorParameter>,
 }
@@ -147,8 +147,8 @@ impl TryFrom<&Attribute> for ComponentAttributes {
                 {
                     result.constructor = Some(string.parse()?);
                 }
-            } else if meta.path.is_ident("scope_name") {
-                if result.scope_name.is_some() {
+            } else if meta.path.is_ident("scope") {
+                if result.scope.is_some() {
                     return Err(Error::new(value.span(), "Scope type is already defined!"));
                 }
 
@@ -157,7 +157,7 @@ impl TryFrom<&Attribute> for ComponentAttributes {
                     ..
                 }) = meta.value()?.parse::<Expr>()?
                 {
-                    result.scope_name = Some(string);
+                    result.scope = Some(string);
                 }
             } else if meta.path.is_ident("constructor_parameters") {
                 if !result.constructor_parameters.is_empty() {
@@ -188,7 +188,7 @@ pub struct ComponentAliasAttributes {
     pub is_primary: bool,
     pub condition: Option<ExprPath>,
     pub priority: i8,
-    pub scope_name: Option<LitStr>,
+    pub scope: Option<LitStr>,
 }
 
 impl Parse for ComponentAliasAttributes {
@@ -215,12 +215,12 @@ impl Parse for ComponentAliasAttributes {
                     .parse::<LitArg<kw::priority, LitInt>>()?
                     .value
                     .base10_parse()?;
-            } else if lookahead.peek(kw::scope_name) {
-                if result.scope_name.is_some() {
+            } else if lookahead.peek(kw::scope) {
+                if result.scope.is_some() {
                     return Err(Error::new(input.span(), "Scope type is already defined!"));
                 }
 
-                result.scope_name = Some(input.parse::<LitArg<kw::scope_name, LitStr>>()?.value);
+                result.scope = Some(input.parse::<LitArg<kw::scope, LitStr>>()?.value);
             } else if lookahead.peek(Token![,]) {
                 let _ = input.parse::<Token![,]>()?;
             } else {
@@ -255,5 +255,5 @@ mod kw {
     custom_keyword!(primary);
     custom_keyword!(condition);
     custom_keyword!(priority);
-    custom_keyword!(scope_name);
+    custom_keyword!(scope);
 }

@@ -379,10 +379,10 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
             .as_ref()
             .map(|attributes| attributes.priority)
             .unwrap_or(0);
-        let scope_name = attributes
+        let scope = attributes
             .as_ref()
-            .and_then(|attributes| attributes.scope_name.clone())
-            .map(|scope_name| quote!(#scope_name))
+            .and_then(|attributes| attributes.scope.clone())
+            .map(|scope| quote!(#scope))
             .unwrap_or_else(|| quote!(springtime_di::scope::SINGLETON));
 
         Ok(quote! {
@@ -430,7 +430,7 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
                         priority: #priority,
                         metadata: ComponentMetadata {
                             names: [#(#names.to_string()),*].into_iter().collect(),
-                            scope_name: #scope_name.to_string(),
+                            scope: #scope.to_string(),
                             constructor,
                             cast,
                         },
@@ -479,10 +479,10 @@ pub fn register_component_alias(
             .map(|condition| quote!(Some(#condition)))
             .unwrap_or_else(|| quote!(None));
         let priority = args.priority;
-        let scope_name = args
-            .scope_name
+        let scope = args
+            .scope
             .as_ref()
-            .map(|scope_name| quote!(Some(#scope_name.to_string())))
+            .map(|scope| quote!(Some(#scope.to_string())))
             .unwrap_or_else(|| quote!(None));
 
         #[cfg(feature = "threadsafe")]
@@ -522,7 +522,7 @@ pub fn register_component_alias(
                         priority: #priority,
                         metadata: ComponentAliasMetadata {
                             is_primary: #is_primary,
-                            scope_name: #scope_name,
+                            scope: #scope,
                             cast,
                         }
                     }

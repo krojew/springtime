@@ -62,7 +62,7 @@
 //! `(Type | Type/name | Option<Type> | Option<Type>/name | Vec<Type>)`, which means (in order):
 //! primary instance of `Type`, `name`d instance of `Type`, optional primary instance of `Type`,
 //! optional `name`d instance of `Type`, all instances of `Type`
-//! * `scope_name = "name"` - use the [scope](crate::scope) named `name` or
+//! * `scope = "name"` - use the [scope](crate::scope) named `name` or
 //! [SINGLETON](crate::scope::SINGLETON) as default
 //!
 //! ### Supported `#[component]` field configuration
@@ -110,7 +110,7 @@
 //! * `priority = number` - if a condition is present, use the given numerical priority to establish
 //! the order of registration in relation to other components with a condition (i8; higher is first;
 //! default is 0)
-//! * `scope_name = "name"` - use the [scope](crate::scope) named `name` to override the concrete
+//! * `scope = "name"` - use the [scope](crate::scope) named `name` to override the concrete
 //! component scope
 
 use crate::instance_provider::ComponentInstanceProviderError;

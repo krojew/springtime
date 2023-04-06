@@ -80,7 +80,7 @@ mod component_derive_test {
         feature = "threadsafe",
         component(
             constructor = "test_component_3",
-            scope_name = "PROTOTYPE",
+            scope = "PROTOTYPE",
             constructor_parameters = "TestComponent2,dyn TestTrait1 + Sync + Send/dep2,Vec<dyn TestTrait1 + Sync + Send>,Option<TestComponent2>"
         )
     )]
@@ -88,7 +88,7 @@ mod component_derive_test {
         not(feature = "threadsafe"),
         component(
             constructor = "test_component_3",
-            scope_name = "PROTOTYPE",
+            scope = "PROTOTYPE",
             constructor_parameters = "TestComponent2,dyn TestTrait1/dep2,Vec<dyn TestTrait1>,Option<TestComponent2>"
         )
     )]

@@ -155,7 +155,7 @@ mod tests {
         };
         let metadata = ComponentAliasMetadata {
             is_primary: false,
-            scope_name: None,
+            scope: None,
             cast: test_cast,
         };
         let metadata = ConditionMetadata::Alias {
@@ -190,7 +190,7 @@ mod tests {
 
         let metadata = ComponentMetadata {
             names: ["n2".to_string(), "n1".to_string()].into_iter().collect(),
-            scope_name: "".to_string(),
+            scope: "".to_string(),
             constructor: test_constructor,
             cast: test_cast,
         };
@@ -203,7 +203,7 @@ mod tests {
 
         let metadata = ComponentAliasMetadata {
             is_primary: false,
-            scope_name: None,
+            scope: None,
             cast: test_cast,
         };
         let metadata = ConditionMetadata::Alias {

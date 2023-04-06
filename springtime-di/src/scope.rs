@@ -137,7 +137,7 @@ mod tests {
         ComponentDefinition {
             names: Default::default(),
             is_primary: false,
-            scope_name: "".to_string(),
+            scope: "".to_string(),
             resolved_type_id: TypeId::of::<u8>(),
             constructor: test_constructor,
             cast: test_cast,
