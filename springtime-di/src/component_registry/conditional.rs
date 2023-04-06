@@ -73,7 +73,7 @@ impl ContextFactory for SimpleContextFactory {
 }
 
 /// Simple condition returning true if the given type is already registered.
-pub fn registered_component<T: Injectable>(
+pub fn registered_component<T: Injectable + ?Sized>(
     context: &dyn Context,
     _metadata: ConditionMetadata,
 ) -> bool {
@@ -81,7 +81,7 @@ pub fn registered_component<T: Injectable>(
 }
 
 /// Simple condition returning true if the given type is not registered yet.
-pub fn unregistered_component<T: Injectable>(
+pub fn unregistered_component<T: Injectable + ?Sized>(
     context: &dyn Context,
     metadata: ConditionMetadata,
 ) -> bool {
