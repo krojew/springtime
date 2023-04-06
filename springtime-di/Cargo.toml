@@ -12,17 +12,26 @@ keywords = ["di", "dependency-injection", "ioc", "injection", "spring"]
 readme = "README.md"
 
 [features]
+async = ["futures", "springtime-di-derive/async"]
 threadsafe = ["springtime-di-derive/threadsafe"]
 derive = ["springtime-di-derive"]
 default = ["threadsafe", "derive"]
+# only used for async examples - not for client usage
+async-examples = ["async", "tokio"]
 
 [dependencies]
 derivative = "2.2.0"
+futures = { version = "0.3.28", optional = true }
 fxhash = "0.2.1"
 inventory = "0.3.4"
 itertools = "0.10.5"
 springtime-di-derive = { path = "../springtime-di-derive", version = "0.1", optional = true }
+tokio = { version = "1.27.0", features = ["full"], optional = true }
 thiserror = "1.0.39"
 
 [dev-dependencies]
 mockall = "0.11.4"
+
+[[example]]
+name = "09-async"
+required-features = ["async-examples"]

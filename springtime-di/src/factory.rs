@@ -12,7 +12,12 @@ use crate::instance_provider::{
 use crate::scope::{
     PrototypeScopeFactory, ScopeFactory, ScopePtr, SingletonScopeFactory, PROTOTYPE, SINGLETON,
 };
+#[cfg(feature = "async")]
+use futures::future::BoxFuture;
+#[cfg(feature = "async")]
+use futures::FutureExt;
 use fxhash::{FxHashMap, FxHashSet};
+#[cfg(not(feature = "async"))]
 use itertools::Itertools;
 use std::any::TypeId;
 
@@ -111,10 +116,39 @@ impl ComponentFactory {
         }
     }
 
-    fn create_instance(
+    #[cfg(feature = "async")]
+    async fn call_constructor(
         &mut self,
         definition: &ComponentDefinition,
-    ) -> Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError> {
+    ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
+        self.types_under_construction
+            .insert(definition.resolved_type_id);
+        let instance = (definition.constructor)(self).await;
+        self.types_under_construction
+            .remove(&definition.resolved_type_id);
+
+        instance
+    }
+
+    #[cfg(not(feature = "async"))]
+    fn call_constructor(
+        &mut self,
+        definition: &ComponentDefinition,
+    ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
+        self.types_under_construction
+            .insert(definition.resolved_type_id);
+        let instance = (definition.constructor)(self);
+        self.types_under_construction
+            .remove(&definition.resolved_type_id);
+
+        instance
+    }
+
+    fn check_scope_instance(
+        &mut self,
+        definition: &ComponentDefinition,
+    ) -> Result<Option<(ComponentInstanceAnyPtr, CastFunction)>, ComponentInstanceProviderError>
+    {
         if self
             .types_under_construction
             .contains(&definition.resolved_type_id)
@@ -138,32 +172,77 @@ impl ComponentFactory {
             }
         };
 
-        if let Some(instance) = scope
+        Ok(scope
             .instance(definition)
-            .map(|instance| (instance, definition.cast))
-        {
-            return Ok(instance);
-        }
+            .map(|instance| (instance, definition.cast)))
+    }
 
-        self.types_under_construction
-            .insert(definition.resolved_type_id);
-        let instance = (definition.constructor)(self);
-        self.types_under_construction
-            .remove(&definition.resolved_type_id);
-
-        let instance = instance?;
-
+    fn store_instance_in_scope(
+        &mut self,
+        definition: &ComponentDefinition,
+        instance: ComponentInstanceAnyPtr,
+    ) -> Result<(), ComponentInstanceProviderError> {
         let scope = self.scopes.get_mut(&definition.scope).ok_or_else(|| {
             ComponentInstanceProviderError::UnrecognizedScope(definition.scope.to_string())
         })?;
 
-        scope.store_instance(definition, instance.clone());
+        scope.store_instance(definition, instance);
 
+        Ok(())
+    }
+
+    #[cfg(feature = "async")]
+    async fn create_instance(
+        &mut self,
+        definition: &ComponentDefinition,
+    ) -> Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError> {
+        if let Some(instance) = self.check_scope_instance(definition)? {
+            return Ok(instance);
+        }
+
+        let instance = self.call_constructor(&definition).await?;
+
+        self.store_instance_in_scope(definition, instance.clone())?;
+        Ok((instance, definition.cast))
+    }
+
+    #[cfg(not(feature = "async"))]
+    fn create_instance(
+        &mut self,
+        definition: &ComponentDefinition,
+    ) -> Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError> {
+        if let Some(instance) = self.check_scope_instance(definition)? {
+            return Ok(instance);
+        }
+
+        let instance = self.call_constructor(definition)?;
+
+        self.store_instance_in_scope(definition, instance.clone())?;
         Ok((instance, definition.cast))
     }
 }
 
 impl ComponentInstanceProvider for ComponentFactory {
+    #[cfg(feature = "async")]
+    fn primary_instance(
+        &mut self,
+        type_id: TypeId,
+    ) -> BoxFuture<
+        '_,
+        Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError>,
+    > {
+        async move {
+            let definition = self
+                .definition_registry
+                .primary_component(type_id)
+                .ok_or(ComponentInstanceProviderError::NoPrimaryInstance(type_id))?;
+
+            self.create_instance(&definition).await
+        }
+        .boxed()
+    }
+
+    #[cfg(not(feature = "async"))]
     fn primary_instance(
         &mut self,
         type_id: TypeId,
@@ -176,6 +255,28 @@ impl ComponentInstanceProvider for ComponentFactory {
         self.create_instance(&definition)
     }
 
+    #[cfg(feature = "async")]
+    fn instances(
+        &mut self,
+        type_id: TypeId,
+    ) -> BoxFuture<
+        '_,
+        Result<Vec<(ComponentInstanceAnyPtr, CastFunction)>, ComponentInstanceProviderError>,
+    > {
+        async move {
+            let definitions = self.definition_registry.components_by_type(type_id);
+
+            let mut result = Vec::with_capacity(definitions.len());
+            for definition in &definitions {
+                result.push(self.create_instance(definition).await?);
+            }
+
+            Ok(result)
+        }
+        .boxed()
+    }
+
+    #[cfg(not(feature = "async"))]
     fn instances(
         &mut self,
         type_id: TypeId,
@@ -187,6 +288,28 @@ impl ComponentInstanceProvider for ComponentFactory {
             .try_collect()
     }
 
+    #[cfg(feature = "async")]
+    fn instance_by_name(
+        &mut self,
+        name: &str,
+        type_id: TypeId,
+    ) -> BoxFuture<
+        '_,
+        Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError>,
+    > {
+        let name = name.to_string();
+        async move {
+            let definition = self
+                .definition_registry
+                .component_by_name(&name, type_id)
+                .ok_or_else(|| ComponentInstanceProviderError::NoNamedInstance(name.to_string()))?;
+
+            self.create_instance(&definition).await
+        }
+        .boxed()
+    }
+
+    #[cfg(not(feature = "async"))]
     fn instance_by_name(
         &mut self,
         name: &str,
@@ -203,245 +326,250 @@ impl ComponentInstanceProvider for ComponentFactory {
 
 #[cfg(test)]
 mod tests {
-    use crate::component_registry::{
-        ComponentDefinition, ComponentDefinitionRegistry, MockComponentDefinitionRegistry,
-    };
-    use crate::factory::{ComponentDefinitionRegistryPtr, ComponentFactory, ScopeFactoryPtr};
-    use crate::instance_provider::{
-        ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstanceProviderError,
-        ComponentInstancePtr,
-    };
-    use crate::scope::{
-        MockScope, MockScopeFactory, PrototypeScopeFactory, ScopePtr, PROTOTYPE, SINGLETON,
-    };
-    use mockall::predicate::*;
-    use std::any::{Any, TypeId};
+    #[cfg(not(feature = "async"))]
+    mod sync {
+        use crate::component_registry::{
+            ComponentDefinition, ComponentDefinitionRegistry, MockComponentDefinitionRegistry,
+        };
+        use crate::factory::{ComponentDefinitionRegistryPtr, ComponentFactory, ScopeFactoryPtr};
+        use crate::instance_provider::{
+            ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstanceProviderError,
+            ComponentInstancePtr,
+        };
+        use crate::scope::{
+            MockScope, MockScopeFactory, PrototypeScopeFactory, ScopePtr, PROTOTYPE, SINGLETON,
+        };
+        use mockall::predicate::*;
+        use std::any::{Any, TypeId};
 
-    fn cast(instance: ComponentInstanceAnyPtr) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr> {
-        Err(instance)
-    }
+        fn cast(
+            instance: ComponentInstanceAnyPtr,
+        ) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr> {
+            Err(instance)
+        }
 
-    fn constructor(
-        _instance_provider: &mut dyn ComponentInstanceProvider,
-    ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
-        Ok(ComponentInstancePtr::new(0) as ComponentInstanceAnyPtr)
-    }
+        fn constructor(
+            _instance_provider: &mut dyn ComponentInstanceProvider,
+        ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
+            Ok(ComponentInstancePtr::new(0) as ComponentInstanceAnyPtr)
+        }
 
-    fn error_constructor(
-        _instance_provider: &mut dyn ComponentInstanceProvider,
-    ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
-        Err(ComponentInstanceProviderError::NoPrimaryInstance(
-            TypeId::of::<i8>(),
-        ))
-    }
+        fn error_constructor(
+            _instance_provider: &mut dyn ComponentInstanceProvider,
+        ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
+            Err(ComponentInstanceProviderError::NoPrimaryInstance(
+                TypeId::of::<i8>(),
+            ))
+        }
 
-    fn recursive_constructor(
-        instance_provider: &mut dyn ComponentInstanceProvider,
-    ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
-        instance_provider
-            .primary_instance(TypeId::of::<i8>())
-            .map(|(instance, _)| instance)
-    }
+        fn recursive_constructor(
+            instance_provider: &mut dyn ComponentInstanceProvider,
+        ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
+            instance_provider
+                .primary_instance(TypeId::of::<i8>())
+                .map(|(instance, _)| instance)
+        }
 
-    fn create_definition() -> (ComponentDefinition, TypeId) {
-        (
-            ComponentDefinition {
-                names: ["name".to_string()].into_iter().collect(),
+        fn create_definition() -> (ComponentDefinition, TypeId) {
+            (
+                ComponentDefinition {
+                    names: ["name".to_string()].into_iter().collect(),
+                    is_primary: false,
+                    scope: PROTOTYPE.to_string(),
+                    resolved_type_id: TypeId::of::<i8>(),
+                    constructor,
+                    cast,
+                },
+                TypeId::of::<i8>(),
+            )
+        }
+
+        fn create_factory<T: ComponentDefinitionRegistry + Send + Sync + 'static>(
+            definition_registry: T,
+        ) -> ComponentFactory {
+            ComponentFactory::new(
+                Box::new(definition_registry) as ComponentDefinitionRegistryPtr,
+                [(
+                    PROTOTYPE.to_string(),
+                    Box::<PrototypeScopeFactory>::default() as ScopeFactoryPtr,
+                )]
+                .into_iter()
+                .collect(),
+            )
+        }
+
+        #[test]
+        fn should_return_primary_instance() {
+            let (definition, id) = create_definition();
+
+            let mut registry = MockComponentDefinitionRegistry::new();
+            registry
+                .expect_primary_component()
+                .with(eq(id))
+                .times(1)
+                .return_const(Some(definition));
+
+            let mut factory = create_factory(registry);
+            assert!(factory.primary_instance(id).is_ok());
+        }
+
+        #[test]
+        fn should_detect_primary_instance_loops() {
+            let id = TypeId::of::<i8>();
+            let definition = ComponentDefinition {
+                names: Default::default(),
                 is_primary: false,
                 scope: PROTOTYPE.to_string(),
                 resolved_type_id: TypeId::of::<i8>(),
+                constructor: recursive_constructor,
+                cast,
+            };
+
+            let mut registry = MockComponentDefinitionRegistry::new();
+            registry
+                .expect_primary_component()
+                .with(eq(id))
+                .times(2)
+                .return_const(Some(definition));
+
+            let mut factory = create_factory(registry);
+            assert_eq!(
+                factory.primary_instance(id).unwrap_err(),
+                ComponentInstanceProviderError::DependencyCycle(id)
+            );
+        }
+
+        #[test]
+        fn should_not_return_missing_primary_instance() {
+            let id = TypeId::of::<i8>();
+
+            let mut registry = MockComponentDefinitionRegistry::new();
+            registry
+                .expect_primary_component()
+                .with(eq(id))
+                .times(1)
+                .return_const(None);
+
+            let mut factory = create_factory(registry);
+            assert_eq!(
+                factory.primary_instance(id).unwrap_err(),
+                ComponentInstanceProviderError::NoPrimaryInstance(id)
+            );
+        }
+
+        #[test]
+        fn should_recognize_primary_instance_missing_scope() {
+            let id = TypeId::of::<i8>();
+            let definition = ComponentDefinition {
+                names: Default::default(),
+                is_primary: false,
+                scope: SINGLETON.to_string(),
+                resolved_type_id: TypeId::of::<i8>(),
                 constructor,
                 cast,
-            },
-            TypeId::of::<i8>(),
-        )
-    }
+            };
 
-    fn create_factory<T: ComponentDefinitionRegistry + Send + Sync + 'static>(
-        definition_registry: T,
-    ) -> ComponentFactory {
-        ComponentFactory::new(
-            Box::new(definition_registry) as ComponentDefinitionRegistryPtr,
-            [(
-                PROTOTYPE.to_string(),
-                Box::<PrototypeScopeFactory>::default() as ScopeFactoryPtr,
-            )]
-            .into_iter()
-            .collect(),
-        )
-    }
+            let mut registry = MockComponentDefinitionRegistry::new();
+            registry
+                .expect_primary_component()
+                .with(eq(id))
+                .times(1)
+                .return_const(Some(definition));
 
-    #[test]
-    fn should_return_primary_instance() {
-        let (definition, id) = create_definition();
+            let mut factory = create_factory(registry);
+            assert_eq!(
+                factory.primary_instance(id).unwrap_err(),
+                ComponentInstanceProviderError::UnrecognizedScope(SINGLETON.to_string())
+            );
+        }
 
-        let mut registry = MockComponentDefinitionRegistry::new();
-        registry
-            .expect_primary_component()
-            .with(eq(id))
-            .times(1)
-            .return_const(Some(definition));
+        #[test]
+        fn should_forward_primary_instance_constructor_error() {
+            let id = TypeId::of::<i8>();
+            let definition = ComponentDefinition {
+                names: Default::default(),
+                is_primary: false,
+                scope: PROTOTYPE.to_string(),
+                resolved_type_id: TypeId::of::<i8>(),
+                constructor: error_constructor,
+                cast,
+            };
 
-        let mut factory = create_factory(registry);
-        assert!(factory.primary_instance(id).is_ok());
-    }
+            let mut registry = MockComponentDefinitionRegistry::new();
+            registry
+                .expect_primary_component()
+                .with(eq(id))
+                .times(1)
+                .return_const(Some(definition));
 
-    #[test]
-    fn should_detect_primary_instance_loops() {
-        let id = TypeId::of::<i8>();
-        let definition = ComponentDefinition {
-            names: Default::default(),
-            is_primary: false,
-            scope: PROTOTYPE.to_string(),
-            resolved_type_id: TypeId::of::<i8>(),
-            constructor: recursive_constructor,
-            cast,
-        };
+            let mut factory = create_factory(registry);
+            assert_eq!(
+                factory.primary_instance(id).unwrap_err(),
+                error_constructor(&mut factory).unwrap_err()
+            );
+        }
 
-        let mut registry = MockComponentDefinitionRegistry::new();
-        registry
-            .expect_primary_component()
-            .with(eq(id))
-            .times(2)
-            .return_const(Some(definition));
+        #[test]
+        fn should_store_primary_instance_in_scope() {
+            let (definition, id) = create_definition();
 
-        let mut factory = create_factory(registry);
-        assert_eq!(
-            factory.primary_instance(id).unwrap_err(),
-            ComponentInstanceProviderError::DependencyCycle(id)
-        );
-    }
+            let mut registry = MockComponentDefinitionRegistry::new();
+            registry
+                .expect_primary_component()
+                .with(eq(id))
+                .times(1)
+                .return_const(Some(definition));
 
-    #[test]
-    fn should_not_return_missing_primary_instance() {
-        let id = TypeId::of::<i8>();
+            let mut scope_factory = MockScopeFactory::new();
+            scope_factory.expect_create_scope().returning(|| {
+                let mut scope = MockScope::new();
+                scope.expect_store_instance().times(1).return_const(());
+                scope.expect_instance().return_const(None);
 
-        let mut registry = MockComponentDefinitionRegistry::new();
-        registry
-            .expect_primary_component()
-            .with(eq(id))
-            .times(1)
-            .return_const(None);
+                Box::new(scope) as ScopePtr
+            });
 
-        let mut factory = create_factory(registry);
-        assert_eq!(
-            factory.primary_instance(id).unwrap_err(),
-            ComponentInstanceProviderError::NoPrimaryInstance(id)
-        );
-    }
+            let mut factory = ComponentFactory::new(
+                Box::new(registry) as ComponentDefinitionRegistryPtr,
+                [(
+                    PROTOTYPE.to_string(),
+                    Box::new(scope_factory) as ScopeFactoryPtr,
+                )]
+                .into_iter()
+                .collect(),
+            );
 
-    #[test]
-    fn should_recognize_primary_instance_missing_scope() {
-        let id = TypeId::of::<i8>();
-        let definition = ComponentDefinition {
-            names: Default::default(),
-            is_primary: false,
-            scope: SINGLETON.to_string(),
-            resolved_type_id: TypeId::of::<i8>(),
-            constructor,
-            cast,
-        };
+            factory.primary_instance(id).unwrap();
+        }
 
-        let mut registry = MockComponentDefinitionRegistry::new();
-        registry
-            .expect_primary_component()
-            .with(eq(id))
-            .times(1)
-            .return_const(Some(definition));
+        #[test]
+        fn should_return_all_instances() {
+            let (definition, id) = create_definition();
 
-        let mut factory = create_factory(registry);
-        assert_eq!(
-            factory.primary_instance(id).unwrap_err(),
-            ComponentInstanceProviderError::UnrecognizedScope(SINGLETON.to_string())
-        );
-    }
+            let mut registry = MockComponentDefinitionRegistry::new();
+            registry
+                .expect_components_by_type()
+                .with(eq(id))
+                .times(1)
+                .return_const(vec![definition.clone(), definition]);
 
-    #[test]
-    fn should_forward_primary_instance_constructor_error() {
-        let id = TypeId::of::<i8>();
-        let definition = ComponentDefinition {
-            names: Default::default(),
-            is_primary: false,
-            scope: PROTOTYPE.to_string(),
-            resolved_type_id: TypeId::of::<i8>(),
-            constructor: error_constructor,
-            cast,
-        };
+            let mut factory = create_factory(registry);
+            assert_eq!(factory.instances(id).unwrap().len(), 2);
+        }
 
-        let mut registry = MockComponentDefinitionRegistry::new();
-        registry
-            .expect_primary_component()
-            .with(eq(id))
-            .times(1)
-            .return_const(Some(definition));
+        #[test]
+        fn should_return_instance_by_name() {
+            let (definition, id) = create_definition();
 
-        let mut factory = create_factory(registry);
-        assert_eq!(
-            factory.primary_instance(id).unwrap_err(),
-            error_constructor(&mut factory).unwrap_err()
-        );
-    }
+            let mut registry = MockComponentDefinitionRegistry::new();
+            registry
+                .expect_component_by_name()
+                .with(eq("name"), eq(id))
+                .times(1)
+                .return_const(Some(definition));
 
-    #[test]
-    fn should_store_primary_instance_in_scope() {
-        let (definition, id) = create_definition();
-
-        let mut registry = MockComponentDefinitionRegistry::new();
-        registry
-            .expect_primary_component()
-            .with(eq(id))
-            .times(1)
-            .return_const(Some(definition));
-
-        let mut scope_factory = MockScopeFactory::new();
-        scope_factory.expect_create_scope().returning(|| {
-            let mut scope = MockScope::new();
-            scope.expect_store_instance().times(1).return_const(());
-            scope.expect_instance().return_const(None);
-
-            Box::new(scope) as ScopePtr
-        });
-
-        let mut factory = ComponentFactory::new(
-            Box::new(registry) as ComponentDefinitionRegistryPtr,
-            [(
-                PROTOTYPE.to_string(),
-                Box::new(scope_factory) as ScopeFactoryPtr,
-            )]
-            .into_iter()
-            .collect(),
-        );
-
-        factory.primary_instance(id).unwrap();
-    }
-
-    #[test]
-    fn should_return_all_instances() {
-        let (definition, id) = create_definition();
-
-        let mut registry = MockComponentDefinitionRegistry::new();
-        registry
-            .expect_components_by_type()
-            .with(eq(id))
-            .times(1)
-            .return_const(vec![definition.clone(), definition]);
-
-        let mut factory = create_factory(registry);
-        assert_eq!(factory.instances(id).unwrap().len(), 2);
-    }
-
-    #[test]
-    fn should_return_instance_by_name() {
-        let (definition, id) = create_definition();
-
-        let mut registry = MockComponentDefinitionRegistry::new();
-        registry
-            .expect_component_by_name()
-            .with(eq("name"), eq(id))
-            .times(1)
-            .return_const(Some(definition));
-
-        let mut factory = create_factory(registry);
-        assert!(factory.instance_by_name("name", id).is_ok());
+            let mut factory = create_factory(registry);
+            assert!(factory.instance_by_name("name", id).is_ok());
+        }
     }
 }

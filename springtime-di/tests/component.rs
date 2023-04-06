@@ -8,6 +8,10 @@ mod component_derive_test {
         ComponentDefinitionRegistry, StaticComponentDefinitionRegistry,
         TypedComponentDefinitionRegistry,
     };
+    #[cfg(feature = "async")]
+    use springtime_di::future::BoxFuture;
+    #[cfg(feature = "async")]
+    use springtime_di::future::FutureExt;
     use springtime_di::instance_provider::ComponentInstanceProviderError;
     use springtime_di::instance_provider::{
         CastFunction, ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
@@ -104,7 +108,21 @@ mod component_derive_test {
     )]
     impl TestTrait2 for TestComponent3 {}
 
-    #[cfg(feature = "threadsafe")]
+    #[cfg(feature = "async")]
+    async fn test_component_3(
+        dependency: ComponentInstancePtr<TestDependency>,
+        _: ComponentInstancePtr<TestComponent2>,
+        _: ComponentInstancePtr<dyn TestTrait1 + Sync + Send>,
+        _: Vec<ComponentInstancePtr<dyn TestTrait1 + Sync + Send>>,
+        _: Option<ComponentInstancePtr<TestComponent2>>,
+    ) -> TestComponent3 {
+        TestComponent3 {
+            _dependency: dependency,
+            _ignored: 0,
+        }
+    }
+
+    #[cfg(all(feature = "threadsafe", not(feature = "async")))]
     fn test_component_3(
         dependency: ComponentInstancePtr<TestDependency>,
         _: ComponentInstancePtr<TestComponent2>,
@@ -117,7 +135,8 @@ mod component_derive_test {
             _ignored: 0,
         }
     }
-    #[cfg(not(feature = "threadsafe"))]
+
+    #[cfg(all(not(feature = "threadsafe"), not(feature = "async")))]
     fn test_component_3(
         dependency: ComponentInstancePtr<TestDependency>,
         _: ComponentInstancePtr<TestComponent2>,
@@ -167,6 +186,7 @@ mod component_derive_test {
     struct TestDependencyInstanceProvider;
 
     impl ComponentInstanceProvider for TestDependencyInstanceProvider {
+        #[cfg(not(feature = "async"))]
         fn primary_instance(
             &mut self,
             type_id: TypeId,
@@ -198,6 +218,40 @@ mod component_derive_test {
             Err(ComponentInstanceProviderError::NoPrimaryInstance(type_id))
         }
 
+        #[cfg(feature = "async")]
+        fn primary_instance(
+            &mut self,
+            type_id: TypeId,
+        ) -> BoxFuture<
+            '_,
+            Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError>,
+        > {
+            async move {
+                let trait_type = TypeId::of::<dyn TestTrait3 + Sync + Send>();
+                if type_id == TypeId::of::<TestDependency>() {
+                    return TestDependency::create(self).await.map(|p| {
+                        (
+                            ComponentInstancePtr::new(p) as ComponentInstanceAnyPtr,
+                            cast_dependency as CastFunction,
+                        )
+                    });
+                }
+
+                if type_id == trait_type {
+                    return TestDependency::create(self).await.map(|p| {
+                        (
+                            ComponentInstancePtr::new(p) as ComponentInstanceAnyPtr,
+                            cast_trait as CastFunction,
+                        )
+                    });
+                }
+
+                Err(ComponentInstanceProviderError::NoPrimaryInstance(type_id))
+            }
+            .boxed()
+        }
+
+        #[cfg(not(feature = "async"))]
         fn instances(
             &mut self,
             type_id: TypeId,
@@ -207,6 +261,23 @@ mod component_derive_test {
                 .map(|(p, cast)| vec![(p, cast)])
         }
 
+        #[cfg(feature = "async")]
+        fn instances(
+            &mut self,
+            type_id: TypeId,
+        ) -> BoxFuture<
+            '_,
+            Result<Vec<(ComponentInstanceAnyPtr, CastFunction)>, ComponentInstanceProviderError>,
+        > {
+            async move {
+                self.primary_instance(type_id)
+                    .await
+                    .map(|(p, cast)| vec![(p, cast)])
+            }
+            .boxed()
+        }
+
+        #[cfg(not(feature = "async"))]
         fn instance_by_name(
             &mut self,
             name: &str,
@@ -220,6 +291,26 @@ mod component_derive_test {
                     name.to_string(),
                 ))
             }
+        }
+
+        #[cfg(feature = "async")]
+        fn instance_by_name(
+            &mut self,
+            name: &str,
+            type_id: TypeId,
+        ) -> BoxFuture<
+            '_,
+            Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError>,
+        > {
+            let name = name.to_string();
+            async move {
+                if name == "test_dependency" {
+                    self.primary_instance(type_id).await
+                } else {
+                    Err(ComponentInstanceProviderError::NoNamedInstance(name))
+                }
+            }
+            .boxed()
         }
     }
 
@@ -241,11 +332,19 @@ mod component_derive_test {
         >(&registry));
     }
 
-    #[test]
-    fn should_directly_create_with_explicit_dependency() {
-        let mut instance_provider = TestDependencyInstanceProvider;
-        assert!(TestComponent1::create(&mut instance_provider).is_ok());
-        assert!(TestComponent2::create(&mut instance_provider).is_ok());
+    #[cfg(not(feature = "async"))]
+    mod sync {
+        use crate::component_derive_test::{
+            TestComponent1, TestComponent2, TestDependencyInstanceProvider,
+        };
+        use springtime_di::component::Component;
+
+        #[test]
+        fn should_directly_create_with_explicit_dependency() {
+            let mut instance_provider = TestDependencyInstanceProvider;
+            assert!(TestComponent1::create(&mut instance_provider).is_ok());
+            assert!(TestComponent2::create(&mut instance_provider).is_ok());
+        }
     }
 
     #[test]

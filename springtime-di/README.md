@@ -23,6 +23,7 @@ itself (_how to accomplish what was requested_).
 * Custom constructor functions
 * Per-field configurable initialization
 * Customizable instance scopes
+* Async + sync support
 
 ## Basic usage
 

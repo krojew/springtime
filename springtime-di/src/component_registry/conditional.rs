@@ -102,116 +102,119 @@ pub fn unregistered_name(context: &dyn Context, metadata: ConditionMetadata) -> 
 
 #[cfg(test)]
 mod tests {
-    use crate::component::Injectable;
-    use crate::component_registry::conditional::{
-        registered_component, unregistered_component, unregistered_name, ConditionMetadata,
-        MockComponentDefinitionRegistryFacade, SimpleContext,
-    };
-    use crate::component_registry::{ComponentAliasMetadata, ComponentMetadata};
-    use crate::instance_provider::ComponentInstanceProviderError;
-    use crate::instance_provider::{ComponentInstanceAnyPtr, ComponentInstanceProvider};
-    use mockall::predicate::*;
-    use mockall::Sequence;
-    use std::any::{Any, TypeId};
-
-    struct TestComponent;
-
-    impl Injectable for TestComponent {}
-
-    fn test_constructor(
-        _instance_provider: &mut dyn ComponentInstanceProvider,
-    ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
-        Err(ComponentInstanceProviderError::NoNamedInstance(
-            "".to_string(),
-        ))
-    }
-
-    fn test_cast(
-        instance: ComponentInstanceAnyPtr,
-    ) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr> {
-        Err(instance)
-    }
-
-    #[test]
-    fn should_check_for_component_existence() {
-        let mut seq = Sequence::new();
-
-        let mut registry = MockComponentDefinitionRegistryFacade::new();
-        registry
-            .expect_is_registered()
-            .with(eq(TypeId::of::<TestComponent>()))
-            .times(2)
-            .in_sequence(&mut seq)
-            .return_const(true);
-        registry
-            .expect_is_registered()
-            .with(eq(TypeId::of::<TestComponent>()))
-            .times(2)
-            .in_sequence(&mut seq)
-            .return_const(false);
-
-        let context = SimpleContext {
-            registry: &registry,
+    #[cfg(not(feature = "async"))]
+    mod sync {
+        use crate::component::Injectable;
+        use crate::component_registry::conditional::{
+            registered_component, unregistered_component, unregistered_name, ConditionMetadata,
+            MockComponentDefinitionRegistryFacade, SimpleContext,
         };
-        let metadata = ComponentAliasMetadata {
-            is_primary: false,
-            scope: None,
-            cast: test_cast,
-        };
-        let metadata = ConditionMetadata::Alias {
-            alias_type: TypeId::of::<i8>(),
-            target_type: TypeId::of::<TestComponent>(),
-            metadata: &metadata,
-        };
+        use crate::component_registry::{ComponentAliasMetadata, ComponentMetadata};
+        use crate::instance_provider::ComponentInstanceProviderError;
+        use crate::instance_provider::{ComponentInstanceAnyPtr, ComponentInstanceProvider};
+        use mockall::predicate::*;
+        use mockall::Sequence;
+        use std::any::{Any, TypeId};
 
-        assert!(registered_component::<TestComponent>(&context, metadata));
-        assert!(!unregistered_component::<TestComponent>(&context, metadata));
-        assert!(!registered_component::<TestComponent>(&context, metadata));
-        assert!(unregistered_component::<TestComponent>(&context, metadata));
-    }
+        struct TestComponent;
 
-    #[test]
-    fn should_check_for_name_existence() {
-        let mut registry = MockComponentDefinitionRegistryFacade::new();
-        registry
-            .expect_is_name_registered()
-            .with(eq("n1"))
-            .times(1)
-            .return_const(true);
-        registry
-            .expect_is_name_registered()
-            .with(eq("n2"))
-            .times(1)
-            .return_const(false);
+        impl Injectable for TestComponent {}
 
-        let context = SimpleContext {
-            registry: &registry,
-        };
+        fn test_constructor(
+            _instance_provider: &mut dyn ComponentInstanceProvider,
+        ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
+            Err(ComponentInstanceProviderError::NoNamedInstance(
+                "".to_string(),
+            ))
+        }
 
-        let metadata = ComponentMetadata {
-            names: ["n2".to_string(), "n1".to_string()].into_iter().collect(),
-            scope: "".to_string(),
-            constructor: test_constructor,
-            cast: test_cast,
-        };
-        let metadata = ConditionMetadata::Component {
-            type_id: TypeId::of::<TestComponent>(),
-            metadata: &metadata,
-        };
+        fn test_cast(
+            instance: ComponentInstanceAnyPtr,
+        ) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr> {
+            Err(instance)
+        }
 
-        assert!(!unregistered_name(&context, metadata));
+        #[test]
+        fn should_check_for_component_existence() {
+            let mut seq = Sequence::new();
 
-        let metadata = ComponentAliasMetadata {
-            is_primary: false,
-            scope: None,
-            cast: test_cast,
-        };
-        let metadata = ConditionMetadata::Alias {
-            alias_type: TypeId::of::<i8>(),
-            target_type: TypeId::of::<TestComponent>(),
-            metadata: &metadata,
-        };
+            let mut registry = MockComponentDefinitionRegistryFacade::new();
+            registry
+                .expect_is_registered()
+                .with(eq(TypeId::of::<TestComponent>()))
+                .times(2)
+                .in_sequence(&mut seq)
+                .return_const(true);
+            registry
+                .expect_is_registered()
+                .with(eq(TypeId::of::<TestComponent>()))
+                .times(2)
+                .in_sequence(&mut seq)
+                .return_const(false);
 
-        assert!(unregistered_name(&context, metadata));
+            let context = SimpleContext {
+                registry: &registry,
+            };
+            let metadata = ComponentAliasMetadata {
+                is_primary: false,
+                scope: None,
+                cast: test_cast,
+            };
+            let metadata = ConditionMetadata::Alias {
+                alias_type: TypeId::of::<i8>(),
+                target_type: TypeId::of::<TestComponent>(),
+                metadata: &metadata,
+            };
+
+            assert!(registered_component::<TestComponent>(&context, metadata));
+            assert!(!unregistered_component::<TestComponent>(&context, metadata));
+            assert!(!registered_component::<TestComponent>(&context, metadata));
+            assert!(unregistered_component::<TestComponent>(&context, metadata));
+        }
+
+        #[test]
+        fn should_check_for_name_existence() {
+            let mut registry = MockComponentDefinitionRegistryFacade::new();
+            registry
+                .expect_is_name_registered()
+                .with(eq("n1"))
+                .times(1)
+                .return_const(true);
+            registry
+                .expect_is_name_registered()
+                .with(eq("n2"))
+                .times(1)
+                .return_const(false);
+
+            let context = SimpleContext {
+                registry: &registry,
+            };
+
+            let metadata = ComponentMetadata {
+                names: ["n2".to_string(), "n1".to_string()].into_iter().collect(),
+                scope: "".to_string(),
+                constructor: test_constructor,
+                cast: test_cast,
+            };
+            let metadata = ConditionMetadata::Component {
+                type_id: TypeId::of::<TestComponent>(),
+                metadata: &metadata,
+            };
+
+            assert!(!unregistered_name(&context, metadata));
+
+            let metadata = ComponentAliasMetadata {
+                is_primary: false,
+                scope: None,
+                cast: test_cast,
+            };
+            let metadata = ConditionMetadata::Alias {
+                alias_type: TypeId::of::<i8>(),
+                target_type: TypeId::of::<TestComponent>(),
+                metadata: &metadata,
+            };
+
+            assert!(unregistered_name(&context, metadata));
+        }
     }
 }

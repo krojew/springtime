@@ -1,8 +1,7 @@
 #[cfg(feature = "derive")]
 mod factory_test {
     use springtime_di::component_registry::conditional::unregistered_component;
-    use springtime_di::factory::ComponentFactoryBuilder;
-    use springtime_di::instance_provider::{ComponentInstancePtr, TypedComponentInstanceProvider};
+    use springtime_di::instance_provider::ComponentInstancePtr;
     use springtime_di::{component_alias, injectable, Component};
 
     #[injectable]
@@ -66,11 +65,18 @@ mod factory_test {
 
     impl TestComponent {}
 
-    #[test]
-    fn should_create_components() {
-        let mut component_factory = ComponentFactoryBuilder::new().unwrap().build();
+    #[cfg(not(feature = "async"))]
+    mod sync {
+        use crate::factory_test::TestComponent;
+        use springtime_di::factory::ComponentFactoryBuilder;
+        use springtime_di::instance_provider::TypedComponentInstanceProvider;
 
-        let component = component_factory.primary_instance_typed::<TestComponent>();
-        assert!(component.is_ok());
+        #[test]
+        fn should_create_components() {
+            let mut component_factory = ComponentFactoryBuilder::new().unwrap().build();
+
+            let component = component_factory.primary_instance_typed::<TestComponent>();
+            assert!(component.is_ok());
+        }
     }
 }

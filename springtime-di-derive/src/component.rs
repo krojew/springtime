@@ -114,8 +114,14 @@ fn get_unnamed_instance(ty: &Type) -> TokenStream {
         .or_else(|| get_injected_vec_type(ty).map(|ty| (quote!(instances_typed), ty)))
         .unwrap_or_else(|| (quote!(primary_instance_typed), get_injected_type(ty)));
 
+    #[cfg(not(feature = "async"))]
     quote! {
         instance_provider.#getter::<#ty>()?
+    }
+
+    #[cfg(feature = "async")]
+    quote! {
+        instance_provider.#getter::<#ty>().await?
     }
 }
 
@@ -125,8 +131,14 @@ fn get_named_instance(ty: &Type, name: &LitStr) -> TokenStream {
         .or_else(|| get_injected_vec_type(ty).map(|ty| (quote!(instances_typed), ty)))
         .unwrap_or_else(|| (quote!(instance_by_name_typed), get_injected_type(ty)));
 
+    #[cfg(not(feature = "async"))]
     quote! {
         instance_provider.#getter::<#ty>(#name)?
+    }
+
+    #[cfg(feature = "async")]
+    quote! {
+        instance_provider.#getter::<#ty>(#name).await?
     }
 }
 
@@ -230,32 +242,57 @@ fn generate_constructor_parameters(
                     .map(|name| {
                         get_constructor_option_type(&component_type)
                             .map(|component_type| {
+                                #[cfg(not(feature = "async"))]
                                 quote! {
                                     instance_provider.instance_by_name_option::<#component_type>(#name)?
                                 }
+                                #[cfg(feature = "async")]
+                                quote! {
+                                    instance_provider.instance_by_name_option::<#component_type>(#name).await?
+                                }
                             })
                             .unwrap_or_else(|| {
+                                #[cfg(not(feature = "async"))]
                                 quote! {
                                     instance_provider.instance_by_name_typed::<#component_type>(#name)?
+                                }
+                                #[cfg(feature = "async")]
+                                quote! {
+                                    instance_provider.instance_by_name_typed::<#component_type>(#name).await?
                                 }
                             })
                     })
                     .unwrap_or_else(|| {
                         get_constructor_vec_type(&component_type)
                             .map(|component_type| {
+                                #[cfg(not(feature = "async"))]
                                 quote! {
                                     instance_provider.instances_typed::<#component_type>()?
+                                }
+                                #[cfg(feature = "async")]
+                                quote! {
+                                    instance_provider.instances_typed::<#component_type>().await?
                                 }
                             })
                             .or_else(|| get_constructor_option_type(&component_type)
                                 .map(|component_type| {
+                                    #[cfg(not(feature = "async"))]
                                     quote! {
                                         instance_provider.primary_instance_option::<#component_type>()?
                                     }
+                                    #[cfg(feature = "async")]
+                                    quote! {
+                                        instance_provider.primary_instance_option::<#component_type>().await?
+                                    }
                                 }))
                             .unwrap_or_else(|| {
+                                #[cfg(not(feature = "async"))]
                                 quote! {
                                     instance_provider.primary_instance_typed::<#component_type>()?
+                                }
+                                #[cfg(feature = "async")]
+                                quote! {
+                                    instance_provider.primary_instance_typed::<#component_type>().await?
                                 }
                             })
                     })
@@ -279,9 +316,16 @@ fn make_constructor_call(
         Fields::Unit => generate_constructor_parameters(constructor_parameters)?,
     };
 
-    Ok(quote! {
+    #[cfg(not(feature = "async"))]
+    let call = quote! {
         #constructor(#fields)
-    })
+    };
+    #[cfg(feature = "async")]
+    let call = quote! {
+        #constructor(#fields).await
+    };
+
+    Ok(call)
 }
 
 fn extract_component_attributes(attributes: &[Attribute]) -> Result<Option<ComponentAttributes>> {
@@ -384,6 +428,46 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
             .and_then(|attributes| attributes.scope.clone())
             .map(|scope| quote!(#scope))
             .unwrap_or_else(|| quote!(springtime_di::scope::SINGLETON));
+        #[cfg(not(feature = "async"))]
+        let constructor = quote! {
+            fn constructor(
+                instance_provider: &mut dyn ComponentInstanceProvider,
+            ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
+                #ident::create(instance_provider).map(|p| ComponentInstancePtr::new(p) as ComponentInstanceAnyPtr)
+            }
+        };
+        #[cfg(feature = "async")]
+        let constructor = quote! {
+            fn constructor(
+                instance_provider: &mut (dyn ComponentInstanceProvider + Sync + Send),
+            ) -> springtime_di::future::BoxFuture<Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError>> {
+                use springtime_di::future::FutureExt;
+                async move {
+                    #ident::create(instance_provider).await.map(|p| ComponentInstancePtr::new(p) as ComponentInstanceAnyPtr)
+                }.boxed()
+            }
+        };
+        #[cfg(not(feature = "async"))]
+        let create = quote! {
+            fn create(
+                instance_provider: &mut dyn springtime_di::instance_provider::ComponentInstanceProvider,
+            ) -> Result<Self, springtime_di::instance_provider::ComponentInstanceProviderError> {
+                use springtime_di::instance_provider::TypedComponentInstanceProvider;
+                use std::ops::Deref;
+                Ok(#generation)
+            }
+        };
+        #[cfg(feature = "async")]
+        let create = quote! {
+            fn create(
+                instance_provider: &mut (dyn springtime_di::instance_provider::ComponentInstanceProvider + Sync + Send),
+            ) -> springtime_di::future::BoxFuture<Result<Self, springtime_di::instance_provider::ComponentInstanceProviderError>> {
+                use springtime_di::future::FutureExt;
+                use springtime_di::instance_provider::TypedComponentInstanceProvider;
+                use std::ops::Deref;
+                async move { Ok(#generation) }.boxed()
+            }
+        };
 
         Ok(quote! {
             #[automatically_derived]
@@ -400,11 +484,7 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
 
             #[automatically_derived]
             impl springtime_di::component::Component for #ident {
-                fn create(instance_provider: &mut dyn springtime_di::instance_provider::ComponentInstanceProvider) -> Result<Self, springtime_di::instance_provider::ComponentInstanceProviderError> {
-                    use springtime_di::instance_provider::TypedComponentInstanceProvider;
-                    use std::ops::Deref;
-                    Ok(#generation)
-                }
+                #create
             }
 
             const _: () = {
@@ -414,9 +494,7 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
                 use springtime_di::instance_provider::{ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstanceProviderError, ComponentInstancePtr};
                 use std::any::{Any, TypeId, type_name};
 
-                fn constructor(instance_provider: &mut dyn ComponentInstanceProvider) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
-                    #ident::create(instance_provider).map(|p| ComponentInstancePtr::new(p) as ComponentInstanceAnyPtr)
-                }
+                #constructor
 
                 fn cast(instance: ComponentInstanceAnyPtr) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr> {
                     #ident::downcast(instance).map(|p| Box::new(p) as Box<dyn Any>)

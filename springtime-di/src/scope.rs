@@ -111,60 +111,63 @@ impl ScopeFactory for PrototypeScopeFactory {
 
 #[cfg(test)]
 mod tests {
-    use crate::component_registry::ComponentDefinition;
-    use crate::instance_provider::ComponentInstanceProviderError;
-    use crate::instance_provider::{
-        ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
-    };
-    use crate::scope::{PrototypeScopeFactory, ScopeFactory, SingletonScopeFactory};
-    use std::any::{Any, TypeId};
+    #[cfg(not(feature = "async"))]
+    mod sync {
+        use crate::component_registry::ComponentDefinition;
+        use crate::instance_provider::ComponentInstanceProviderError;
+        use crate::instance_provider::{
+            ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
+        };
+        use crate::scope::{PrototypeScopeFactory, ScopeFactory, SingletonScopeFactory};
+        use std::any::{Any, TypeId};
 
-    fn test_constructor(
-        _instance_provider: &mut dyn ComponentInstanceProvider,
-    ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
-        Err(ComponentInstanceProviderError::IncompatibleComponent(
-            TypeId::of::<i8>(),
-        ))
-    }
-
-    fn test_cast(
-        instance: ComponentInstanceAnyPtr,
-    ) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr> {
-        Err(instance)
-    }
-
-    fn create_definition() -> ComponentDefinition {
-        ComponentDefinition {
-            names: Default::default(),
-            is_primary: false,
-            scope: "".to_string(),
-            resolved_type_id: TypeId::of::<u8>(),
-            constructor: test_constructor,
-            cast: test_cast,
+        fn test_constructor(
+            _instance_provider: &mut dyn ComponentInstanceProvider,
+        ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
+            Err(ComponentInstanceProviderError::IncompatibleComponent(
+                TypeId::of::<i8>(),
+            ))
         }
-    }
 
-    #[test]
-    fn should_support_singletons() {
-        let definition = create_definition();
-        let factory = SingletonScopeFactory;
-        let mut scope = factory.create_scope();
+        fn test_cast(
+            instance: ComponentInstanceAnyPtr,
+        ) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr> {
+            Err(instance)
+        }
 
-        let instance = ComponentInstancePtr::new(0) as ComponentInstanceAnyPtr;
-        scope.store_instance(&definition, instance.clone());
+        fn create_definition() -> ComponentDefinition {
+            ComponentDefinition {
+                names: Default::default(),
+                is_primary: false,
+                scope: "".to_string(),
+                resolved_type_id: TypeId::of::<u8>(),
+                constructor: test_constructor,
+                cast: test_cast,
+            }
+        }
 
-        assert!(scope.instance(&definition).is_some());
-    }
+        #[test]
+        fn should_support_singletons() {
+            let definition = create_definition();
+            let factory = SingletonScopeFactory;
+            let mut scope = factory.create_scope();
 
-    #[test]
-    fn should_support_prototypes() {
-        let definition = create_definition();
-        let factory = PrototypeScopeFactory;
-        let mut scope = factory.create_scope();
+            let instance = ComponentInstancePtr::new(0) as ComponentInstanceAnyPtr;
+            scope.store_instance(&definition, instance.clone());
 
-        let instance = ComponentInstancePtr::new(0) as ComponentInstanceAnyPtr;
-        scope.store_instance(&definition, instance.clone());
+            assert!(scope.instance(&definition).is_some());
+        }
 
-        assert!(scope.instance(&definition).is_none());
+        #[test]
+        fn should_support_prototypes() {
+            let definition = create_definition();
+            let factory = PrototypeScopeFactory;
+            let mut scope = factory.create_scope();
+
+            let instance = ComponentInstancePtr::new(0) as ComponentInstanceAnyPtr;
+            scope.store_instance(&definition, instance.clone());
+
+            assert!(scope.instance(&definition).is_none());
+        }
     }
 }

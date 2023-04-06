@@ -42,10 +42,13 @@
 //!
 //! * `derive` - automatically import helper proc macros
 //! * `threadsafe` - use threadsafe pointers and `Send + Sync` trait bounds
+//! * `async` - turn all creation functions async
 
 pub mod component;
 pub mod component_registry;
 pub mod factory;
+#[cfg(feature = "async")]
+pub mod future;
 pub mod instance_provider;
 pub mod scope;
 

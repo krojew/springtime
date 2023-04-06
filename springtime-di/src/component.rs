@@ -113,6 +113,8 @@
 //! * `scope = "name"` - use the [scope](crate::scope) named `name` to override the concrete
 //! component scope
 
+#[cfg(feature = "async")]
+use crate::future::BoxFuture;
 use crate::instance_provider::ComponentInstanceProviderError;
 use crate::instance_provider::{
     ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
@@ -125,9 +127,15 @@ use crate::instance_provider::{
 /// Please see the module-level documentation for more information.
 pub trait Component: ComponentDowncast<Self> + Sized {
     /// Creates an instance of this component using dependencies from given [ComponentInstanceProvider].
+    #[cfg(not(feature = "async"))]
     fn create(
         instance_provider: &mut dyn ComponentInstanceProvider,
     ) -> Result<Self, ComponentInstanceProviderError>;
+
+    #[cfg(feature = "async")]
+    fn create(
+        instance_provider: &mut (dyn ComponentInstanceProvider + Sync + Send),
+    ) -> BoxFuture<Result<Self, ComponentInstanceProviderError>>;
 }
 
 /// Helper trait for traits implemented by components, thus allowing injection of components based

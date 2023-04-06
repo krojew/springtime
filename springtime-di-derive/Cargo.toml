@@ -15,6 +15,7 @@ readme = "README.md"
 proc-macro = true
 
 [features]
+async = []
 threadsafe = []
 default = ["threadsafe"]
 
