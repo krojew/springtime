@@ -533,6 +533,7 @@ mod registry {
             for definition in &mut target_definitions {
                 definition.is_primary = metadata.is_primary;
                 definition.scope_name = metadata.scope_name.clone();
+                definition.cast = metadata.cast;
             }
 
             if let Some(name) = &metadata.name {
