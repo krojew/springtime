@@ -1,6 +1,6 @@
 //! A dependency injection crate inspired by the [Spring Framework](https://spring.io/) in Java.
 //!
-//! The philosophy of *Springtime* is to provide the means of easy dependency injection without
+//! The philosophy of **Springtime** is to provide the means of easy dependency injection without
 //! unnecessary manual configuration, e.g. without the need to explicitly create dependencies and
 //! storing them in containers. As much work as possible is placed on compile-time metadata creation
 //! and automatic [component] discovery, thus allowing users to focus on the _usage_ of components,

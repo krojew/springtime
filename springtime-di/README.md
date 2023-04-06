@@ -22,12 +22,14 @@ itself (_how to accomplish what was requested_).
 * Component priorities
 * Custom constructor functions
 * Per-field configurable initialization
+* Customizable instance scopes
 
 ## Basic usage
 
 *Springtime* is highly configurable, but the most basic usage example is quite simple and consists of using a few
-attributes to fully configure the dependency chain. For tutorial, advanced features, and patterns, please look at the
-examples, which form a step-by-step guide.
+attributes to fully configure the dependency chain. For **tutorial**, advanced features, and patterns, please look at
+the [examples](https://github.com/krojew/springtime/tree/master/springtime-di/examples), which form a step-by-step 
+guide.
 
 ```rust
 use springtime_di::factory::ComponentFactoryBuilder;
