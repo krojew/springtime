@@ -241,7 +241,14 @@ impl StaticComponentDefinitionRegistry {
                 .map(|registerer| (registerer.register)())
                 .collect_vec();
 
-        let definition_map = Self::register_unconditional_components(
+        // components need to be registered in appropriate order to ensure dependencies are met:
+        // 1. unconditional components - they depend on nothing, so can go first
+        // 2. unconditional aliases for unconditional components - they only depend on the above
+        // 3. conditional components - they might depend on the above or each other
+        // 4. unconditional aliases for conditional components - they might depend on the above only
+        // 5. conditional aliases - they might depend on anything
+
+        let (definition_map, enabled_types) = Self::register_unconditional_components(
             &component_definitions,
             allow_definition_overriding,
         )?;
@@ -251,29 +258,31 @@ impl StaticComponentDefinitionRegistry {
             allow_definition_overriding,
         };
 
-        let disabled_types = registry.register_conditional_components(
+        // register aliases for unconditionally registered components
+        registry.register_unconditional_aliases(&alias_definitions, &enabled_types)?;
+
+        registry.register_conditional_components_with_dependents(
             component_definitions,
             alias_definitions.clone(),
+            enabled_types,
             context_factory,
         )?;
-
-        registry.register_unconditional_aliases(&alias_definitions, &disabled_types)?;
 
         Ok(registry)
     }
 
-    //noinspection DuplicatedCode
-    fn register_conditional_components<CF: ContextFactory>(
+    fn register_conditional_components_with_dependents<CF: ContextFactory>(
         &mut self,
         component_definitions: Vec<TypedComponentDefinition>,
         alias_definitions: Vec<ComponentAliasDefinition>,
+        mut enabled_types: FxHashSet<TypeId>,
         context_factory: &CF,
-    ) -> Result<FxHashSet<TypeId>, ComponentDefinitionRegistryError> {
+    ) -> Result<(), ComponentDefinitionRegistryError> {
         if component_definitions.is_empty() && alias_definitions.is_empty() {
-            return Ok(Default::default());
+            return Ok(());
         }
 
-        let mut disabled_types = FxHashSet::default();
+        let mut new_enabled_types = FxHashSet::default();
 
         for (definition, condition) in component_definitions
             .iter()
@@ -297,14 +306,18 @@ impl StaticComponentDefinitionRegistry {
                     &definition.metadata,
                     self.allow_definition_overriding,
                 )?;
-            } else {
-                disabled_types.insert(definition.target);
+
+                new_enabled_types.insert(definition.target);
             }
         }
 
+        self.register_unconditional_aliases(&alias_definitions, &new_enabled_types)?;
+
+        enabled_types.extend(new_enabled_types.into_iter());
+
         for (definition, condition) in alias_definitions
             .iter()
-            .filter(|definition| !disabled_types.contains(&definition.target_type))
+            .filter(|definition| enabled_types.contains(&definition.target_type))
             .filter_map(|definition| {
                 definition
                     .condition
@@ -330,14 +343,16 @@ impl StaticComponentDefinitionRegistry {
             }
         }
 
-        Ok(disabled_types)
+        Ok(())
     }
 
     fn register_unconditional_components(
         component_definitions: &[TypedComponentDefinition],
         allow_definition_overriding: bool,
-    ) -> Result<NamedComponentDefinitionMap, ComponentDefinitionRegistryError> {
+    ) -> Result<(NamedComponentDefinitionMap, FxHashSet<TypeId>), ComponentDefinitionRegistryError>
+    {
         let mut definition_map = NamedComponentDefinitionMap::default();
+        let mut enabled_types = FxHashSet::default();
 
         for definition in component_definitions
             .iter()
@@ -349,18 +364,20 @@ impl StaticComponentDefinitionRegistry {
                 &definition.metadata,
                 allow_definition_overriding,
             )?;
+
+            enabled_types.insert(definition.target);
         }
 
-        Ok(definition_map)
+        Ok((definition_map, enabled_types))
     }
 
     fn register_unconditional_aliases(
         &mut self,
         alias_definitions: &[ComponentAliasDefinition],
-        disabled_types: &FxHashSet<TypeId>,
+        enabled_types: &FxHashSet<TypeId>,
     ) -> Result<(), ComponentDefinitionRegistryError> {
         for definition in alias_definitions.iter().filter(|definition| {
-            definition.condition.is_none() && !disabled_types.contains(&definition.target_type)
+            definition.condition.is_none() && enabled_types.contains(&definition.target_type)
         }) {
             self.definition_map.try_register_alias(
                 definition.alias_type,

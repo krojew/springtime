@@ -55,7 +55,8 @@ impl TestTrait for TestDependency {
 // this is another component, but with a dependency
 #[derive(Component)]
 struct TestComponent {
-    // the framework will know how to inject dyn TestTrait, when asked for TestComponent
+    // the framework will know how to inject dyn TestTrait, when asked for TestComponent (Send + Sync are only needed
+    // with the "threadsafe" feature)
     // more details are available in the documentation
     dependency: ComponentInstancePtr<dyn TestTrait + Send + Sync>,
     // alternatively, you can inject the concrete type
