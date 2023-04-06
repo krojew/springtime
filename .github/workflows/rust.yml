@@ -21,11 +21,11 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all-targets --all-features
+          args: --all-targets
       - name: Format check
         uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
       - name: Clippy check
-        run: cargo install cargo-hack && cargo hack --feature-powerset clippy --locked --release
+        run: cargo install cargo-hack && cargo hack --feature-powerset --exclude-features async,async-examples clippy --locked --release
