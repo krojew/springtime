@@ -6,10 +6,10 @@ authors.workspace = true
 description = "Derive support for springtime-di crate."
 documentation = "https://docs.rs/springtime-di"
 repository.workspace = true
-readme.workspace = true
 license.workspace = true
 keywords = ["di", "dependency-injection", "ioc", "injection", "spring", "derive"]
 rust-version = "1.65"
+readme = "README.md"
 
 [lib]
 proc-macro = true

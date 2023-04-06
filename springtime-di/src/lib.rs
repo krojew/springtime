@@ -6,7 +6,7 @@
 //! and automatic [component] discovery, thus allowing users to focus on the _usage_ of components,
 //! rather than their _creation_ and _management_. With an accent placed on attributes,
 //! dependency configuration becomes declarative (_what I want to accomplish_) leaving the gritty
-//! details the the framework itself (_how to accomplish what was requested_).
+//! details the framework itself (_how to accomplish what was requested_).
 //!
 //! ### Simple usage example
 //!

@@ -7,9 +7,9 @@ rust-version = "1.62"
 description = "Dependency injection framework based on automatic component discovery and runtime autowiring."
 documentation = "https://docs.rs/springtime-di"
 repository.workspace = true
-readme.workspace = true
 license.workspace = true
 keywords = ["di", "dependency-injection", "ioc", "injection", "spring"]
+readme = "README.md"
 
 [features]
 threadsafe = ["springtime-di-derive/threadsafe"]
