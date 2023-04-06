@@ -1,6 +1,6 @@
 [package]
 name = "springtime-di-derive"
-version = "0.1.0"
+version = "0.2.0"
 edition.workspace = true
 authors.workspace = true
 description = "Derive support for springtime-di crate."
