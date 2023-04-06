@@ -62,10 +62,11 @@ pub trait ComponentInstanceProvider {
         type_id: TypeId,
     ) -> Result<Vec<(ComponentInstanceAnyPtr, CastFunction)>, ComponentInstanceProviderError>;
 
-    /// Tries to return an instance with the given name.
+    /// Tries to return an instance with the given name and type.
     fn instance_by_name(
         &mut self,
         name: &str,
+        type_id: TypeId,
     ) -> Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError>;
 }
 
@@ -136,8 +137,9 @@ impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for
         &mut self,
         name: &str,
     ) -> Result<ComponentInstancePtr<T>, ComponentInstanceProviderError> {
-        self.instance_by_name(name)
-            .and_then(move |(p, cast)| cast_instance(p, cast, TypeId::of::<T>()))
+        let type_id = TypeId::of::<T>();
+        self.instance_by_name(name, type_id)
+            .and_then(move |(p, cast)| cast_instance(p, cast, type_id))
     }
 
     fn instance_by_name_option<T: Injectable + ?Sized>(
@@ -250,7 +252,7 @@ mod tests {
         let mut instance_provider = MockComponentInstanceProvider::new();
         instance_provider
             .expect_instance_by_name()
-            .with(eq(name))
+            .with(eq(name), eq(TypeId::of::<TestComponent>()))
             .times(1)
             .return_const(Ok((
                 ComponentInstancePtr::new(TestComponent) as ComponentInstanceAnyPtr,
@@ -269,7 +271,7 @@ mod tests {
         let mut instance_provider = MockComponentInstanceProvider::new();
         instance_provider
             .expect_instance_by_name()
-            .with(eq(name))
+            .with(eq(name), eq(TypeId::of::<TestComponent>()))
             .times(1)
             .return_const(Ok((
                 ComponentInstancePtr::new(TestComponent) as ComponentInstanceAnyPtr,

@@ -195,10 +195,11 @@ impl ComponentInstanceProvider for ComponentFactory {
     fn instance_by_name(
         &mut self,
         name: &str,
+        type_id: TypeId,
     ) -> Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError> {
         let definition = self
             .definition_registry
-            .component_by_name(name)
+            .component_by_name(name, type_id)
             .ok_or_else(|| ComponentInstanceProviderError::NoNamedInstance(name.to_string()))?;
 
         self.create_instance(&definition)
@@ -436,16 +437,16 @@ mod tests {
 
     #[test]
     fn should_return_instance_by_name() {
-        let (definition, _) = create_definition();
+        let (definition, id) = create_definition();
 
         let mut registry = MockComponentDefinitionRegistry::new();
         registry
             .expect_component_by_name()
-            .with(eq("name"))
+            .with(eq("name"), eq(id))
             .times(1)
             .return_const(Some(definition));
 
         let mut factory = create_factory(registry);
-        assert!(factory.instance_by_name("name").is_ok());
+        assert!(factory.instance_by_name("name", id).is_ok());
     }
 }

@@ -37,6 +37,12 @@ mod factory_test {
         _dependency_4: Option<ComponentInstancePtr<dyn TestTrait2 + Send + Sync>>,
         #[cfg(not(feature = "threadsafe"))]
         _dependency_4: Option<ComponentInstancePtr<dyn TestTrait2>>,
+        #[cfg(feature = "threadsafe")]
+        #[component(name = "test_dependency_1")]
+        _dependency_5: ComponentInstancePtr<dyn TestTrait1 + Send + Sync>,
+        #[cfg(not(feature = "threadsafe"))]
+        #[component(name = "test_dependency_1")]
+        _dependency_5: ComponentInstancePtr<dyn TestTrait1>,
     }
 
     impl TestComponent {}

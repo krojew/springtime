@@ -69,7 +69,7 @@ mod component_derive_test {
         #[component(default = "dummy_expr")] i8,
     );
 
-    #[component_alias(name = "test_trait_1_alias_name")]
+    #[component_alias]
     impl TestTrait1 for TestComponent2 {}
 
     #[component_alias(primary, condition = "dummy_alias_condition", priority = 100)]
@@ -81,7 +81,7 @@ mod component_derive_test {
         component(
             constructor = "test_component_3",
             scope_name = "PROTOTYPE",
-            constructor_parameters = "TestComponent2,dyn TestTrait1 + Sync + Send/test_trait_1_alias_name,Vec<dyn TestTrait1 + Sync + Send>,Option<TestComponent2>"
+            constructor_parameters = "TestComponent2,dyn TestTrait1 + Sync + Send/dep2,Vec<dyn TestTrait1 + Sync + Send>,Option<TestComponent2>"
         )
     )]
     #[cfg_attr(
@@ -89,7 +89,7 @@ mod component_derive_test {
         component(
             constructor = "test_component_3",
             scope_name = "PROTOTYPE",
-            constructor_parameters = "TestComponent2,dyn TestTrait1/test_trait_1_alias_name,Vec<dyn TestTrait1>,Option<TestComponent2>"
+            constructor_parameters = "TestComponent2,dyn TestTrait1/dep2,Vec<dyn TestTrait1>,Option<TestComponent2>"
         )
     )]
     struct TestComponent3 {
@@ -210,15 +210,11 @@ mod component_derive_test {
         fn instance_by_name(
             &mut self,
             name: &str,
+            type_id: TypeId,
         ) -> Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError>
         {
             if name == "test_dependency" {
-                #[cfg(feature = "threadsafe")]
-                let trait_type = TypeId::of::<dyn TestTrait3 + Sync + Send>();
-                #[cfg(not(feature = "threadsafe"))]
-                let trait_type = TypeId::of::<dyn TestTrait3>();
-
-                self.primary_instance(trait_type)
+                self.primary_instance(type_id)
             } else {
                 Err(ComponentInstanceProviderError::NoNamedInstance(
                     name.to_string(),
@@ -288,8 +284,12 @@ mod component_derive_test {
         let registry =
             StaticComponentDefinitionRegistry::new(false, &SimpleContextFactory::default())
                 .unwrap();
-        assert!(registry
-            .component_by_name("test_trait_1_alias_name")
-            .is_some());
+
+        #[cfg(feature = "threadsafe")]
+        let type_id = TypeId::of::<dyn TestTrait1 + Sync + Send>();
+        #[cfg(not(feature = "threadsafe"))]
+        let type_id = TypeId::of::<dyn TestTrait1>();
+
+        assert!(registry.component_by_name("dep2", type_id).is_some());
     }
 }

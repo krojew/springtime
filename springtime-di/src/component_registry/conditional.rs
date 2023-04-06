@@ -88,10 +88,7 @@ pub fn unregistered_name(context: &dyn Context, metadata: ConditionMetadata) -> 
         ConditionMetadata::Component(ComponentMetadata { names, .. }) => {
             !names.iter().any(|name| registry.is_name_registered(name))
         }
-        ConditionMetadata::Alias(ComponentAliasMetadata {
-            name: Some(name), ..
-        }) => !registry.is_name_registered(name),
-        ConditionMetadata::Alias(ComponentAliasMetadata { name: None, .. }) => true,
+        ConditionMetadata::Alias(_) => true,
     }
 }
 
@@ -150,7 +147,6 @@ mod tests {
         };
         let metadata = ComponentAliasMetadata {
             is_primary: false,
-            name: None,
             scope_name: "".to_string(),
             cast: test_cast,
         };
@@ -168,16 +164,11 @@ mod tests {
         registry
             .expect_is_name_registered()
             .with(eq("n1"))
-            .times(2)
+            .times(1)
             .return_const(true);
         registry
             .expect_is_name_registered()
             .with(eq("n2"))
-            .times(1)
-            .return_const(false);
-        registry
-            .expect_is_name_registered()
-            .with(eq("n3"))
             .times(1)
             .return_const(false);
 
@@ -197,17 +188,6 @@ mod tests {
 
         let metadata = ComponentAliasMetadata {
             is_primary: false,
-            name: Some("n1".to_string()),
-            scope_name: "".to_string(),
-            cast: test_cast,
-        };
-        let metadata = ConditionMetadata::Alias(&metadata);
-
-        assert!(!unregistered_name(&context, metadata));
-
-        let metadata = ComponentAliasMetadata {
-            is_primary: false,
-            name: Some("n3".to_string()),
             scope_name: "".to_string(),
             cast: test_cast,
         };

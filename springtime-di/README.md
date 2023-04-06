@@ -58,6 +58,8 @@ struct TestComponent {
     // the framework will know how to inject dyn TestTrait, when asked for TestComponent
     // more details are available in the documentation
     dependency: ComponentInstancePtr<dyn TestTrait + Send + Sync>,
+    // alternatively, you can inject the concrete type
+    // dependency: ComponentInstancePtr<TestDependency>,
 }
 
 impl TestComponent {
