@@ -29,3 +29,5 @@ jobs:
           args: --all -- --check
       - name: Clippy check
         run: cargo install cargo-hack && cargo hack --feature-powerset --exclude-features async,async-examples clippy --locked --release
+      - name: Check async
+        run: cargo run --example 09-async --features async-examples
