@@ -208,8 +208,12 @@ fn generate_constructor_call_arguments<'a>(
 
     let constructor_parameters = generate_constructor_parameters(constructor_parameters)?;
 
-    Ok(quote! {
-        #(#fields),* #constructor_parameters
+    Ok(if fields.is_empty() {
+        quote!(#constructor_parameters)
+    } else {
+        quote! {
+            #(#fields),*, #constructor_parameters
+        }
     })
 }
 
@@ -257,7 +261,7 @@ fn generate_constructor_parameters(
                     })
             })
         })
-        .fold_ok(quote!(), |tokens, param| quote!(#tokens, #param))
+        .fold_ok(quote!(), |tokens, param| quote!(#tokens #param,))
 }
 
 fn make_constructor_call(
