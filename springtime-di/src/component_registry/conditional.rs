@@ -35,8 +35,15 @@ pub trait ContextFactory {
 /// Metadata for the entity which is currently evaluated for registration.
 #[derive(Clone, Debug, Copy)]
 pub enum ConditionMetadata<'a> {
-    Component(&'a ComponentMetadata),
-    Alias(&'a ComponentAliasMetadata),
+    Component {
+        type_id: TypeId,
+        metadata: &'a ComponentMetadata,
+    },
+    Alias {
+        alias_type: TypeId,
+        target_type: TypeId,
+        metadata: &'a ComponentAliasMetadata,
+    },
 }
 
 /// Registration condition which should pass to let given [ConditionMetadata] be registered.
@@ -85,10 +92,11 @@ pub fn unregistered_component<T: Injectable>(
 pub fn unregistered_name(context: &dyn Context, metadata: ConditionMetadata) -> bool {
     let registry = context.registry();
     match metadata {
-        ConditionMetadata::Component(ComponentMetadata { names, .. }) => {
-            !names.iter().any(|name| registry.is_name_registered(name))
-        }
-        ConditionMetadata::Alias(_) => true,
+        ConditionMetadata::Component {
+            metadata: ComponentMetadata { names, .. },
+            ..
+        } => !names.iter().any(|name| registry.is_name_registered(name)),
+        ConditionMetadata::Alias { .. } => true,
     }
 }
 
@@ -150,7 +158,11 @@ mod tests {
             scope_name: "".to_string(),
             cast: test_cast,
         };
-        let metadata = ConditionMetadata::Alias(&metadata);
+        let metadata = ConditionMetadata::Alias {
+            alias_type: TypeId::of::<i8>(),
+            target_type: TypeId::of::<TestComponent>(),
+            metadata: &metadata,
+        };
 
         assert!(registered_component::<TestComponent>(&context, metadata));
         assert!(!unregistered_component::<TestComponent>(&context, metadata));
@@ -182,7 +194,10 @@ mod tests {
             constructor: test_constructor,
             cast: test_cast,
         };
-        let metadata = ConditionMetadata::Component(&metadata);
+        let metadata = ConditionMetadata::Component {
+            type_id: TypeId::of::<TestComponent>(),
+            metadata: &metadata,
+        };
 
         assert!(!unregistered_name(&context, metadata));
 
@@ -191,7 +206,11 @@ mod tests {
             scope_name: "".to_string(),
             cast: test_cast,
         };
-        let metadata = ConditionMetadata::Alias(&metadata);
+        let metadata = ConditionMetadata::Alias {
+            alias_type: TypeId::of::<i8>(),
+            target_type: TypeId::of::<TestComponent>(),
+            metadata: &metadata,
+        };
 
         assert!(unregistered_name(&context, metadata));
     }

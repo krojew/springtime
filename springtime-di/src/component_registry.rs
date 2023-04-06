@@ -284,7 +284,10 @@ impl StaticComponentDefinitionRegistry {
         {
             if (condition)(
                 context_factory.create_context(self).as_ref(),
-                ConditionMetadata::Component(&definition.metadata),
+                ConditionMetadata::Component {
+                    type_id: definition.target,
+                    metadata: &definition.metadata,
+                },
             ) {
                 self.definition_map.try_register_component(
                     definition.target,
@@ -306,7 +309,11 @@ impl StaticComponentDefinitionRegistry {
         {
             if (condition)(
                 context_factory.create_context(self).as_ref(),
-                ConditionMetadata::Alias(&definition.metadata),
+                ConditionMetadata::Alias {
+                    alias_type: definition.alias_type,
+                    target_type: definition.target_type,
+                    metadata: &definition.metadata,
+                },
             ) {
                 self.definition_map.try_register_alias(
                     definition.alias_type,
