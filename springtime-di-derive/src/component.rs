@@ -482,8 +482,8 @@ pub fn register_component_alias(
         let scope_name = args
             .scope_name
             .as_ref()
-            .map(|scope_name| quote!(#scope_name))
-            .unwrap_or_else(|| quote!(springtime_di::scope::SINGLETON));
+            .map(|scope_name| quote!(Some(#scope_name.to_string())))
+            .unwrap_or_else(|| quote!(None));
 
         #[cfg(feature = "threadsafe")]
         let trait_bounds = quote!( + Sync + Send);
@@ -522,7 +522,7 @@ pub fn register_component_alias(
                         priority: #priority,
                         metadata: ComponentAliasMetadata {
                             is_primary: #is_primary,
-                            scope_name: #scope_name.to_string(),
+                            scope_name: #scope_name,
                             cast,
                         }
                     }

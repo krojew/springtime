@@ -104,7 +104,7 @@ pub struct ComponentMetadata {
 pub struct ComponentAliasMetadata {
     pub is_primary: bool,
 
-    pub scope_name: String,
+    pub scope_name: Option<String>,
 
     #[derivative(Debug = "ignore")]
     pub cast: CastFunction,
@@ -553,8 +553,11 @@ mod registry {
             // should run once due to above anyway
             for definition in &mut target_definitions {
                 definition.is_primary = metadata.is_primary;
-                definition.scope_name = metadata.scope_name.clone();
                 definition.cast = metadata.cast;
+
+                if let Some(scope_name) = &metadata.scope_name {
+                    definition.scope_name = scope_name.clone();
+                }
             }
 
             if let Some(alias_definitions) = self.definitions.get_mut(&alias_type) {
@@ -720,7 +723,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: false,
-                        scope_name: "".to_string(),
+                        scope_name: None,
                         cast,
                     },
                 )
@@ -733,7 +736,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: false,
-                        scope_name: "".to_string(),
+                        scope_name: None,
                         cast,
                     },
                 )
@@ -748,7 +751,7 @@ mod registry {
                         "",
                         &ComponentAliasMetadata {
                             is_primary: true,
-                            scope_name: "".to_string(),
+                            scope_name: None,
                             cast,
                         },
                     )
@@ -822,7 +825,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: false,
-                        scope_name: "".to_string(),
+                        scope_name: None,
                         cast,
                     },
                 )
@@ -851,7 +854,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: false,
-                        scope_name: "scope".to_string(),
+                        scope_name: Some("scope".to_string()),
                         cast,
                     },
                 )
@@ -877,7 +880,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: true,
-                        scope_name: "".to_string(),
+                        scope_name: None,
                         cast,
                     },
                 )
@@ -892,7 +895,7 @@ mod registry {
                         "",
                         &ComponentAliasMetadata {
                             is_primary: true,
-                            scope_name: "".to_string(),
+                            scope_name: None,
                             cast
                         },
                     )
@@ -918,7 +921,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: false,
-                        scope_name: "".to_string(),
+                        scope_name: None,
                         cast,
                     },
                 )
@@ -948,7 +951,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: false,
-                        scope_name: "".to_string(),
+                        scope_name: None,
                         cast,
                     },
                 )
@@ -961,7 +964,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: true,
-                        scope_name: "".to_string(),
+                        scope_name: None,
                         cast,
                     },
                 )
@@ -991,7 +994,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: false,
-                        scope_name: "".to_string(),
+                        scope_name: None,
                         cast,
                     },
                 )
@@ -1004,7 +1007,7 @@ mod registry {
                     "",
                     &ComponentAliasMetadata {
                         is_primary: false,
-                        scope_name: "".to_string(),
+                        scope_name: None,
                         cast,
                     },
                 )

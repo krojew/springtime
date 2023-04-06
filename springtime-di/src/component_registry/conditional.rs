@@ -155,7 +155,7 @@ mod tests {
         };
         let metadata = ComponentAliasMetadata {
             is_primary: false,
-            scope_name: "".to_string(),
+            scope_name: None,
             cast: test_cast,
         };
         let metadata = ConditionMetadata::Alias {
@@ -203,7 +203,7 @@ mod tests {
 
         let metadata = ComponentAliasMetadata {
             is_primary: false,
-            scope_name: "".to_string(),
+            scope_name: None,
             cast: test_cast,
         };
         let metadata = ConditionMetadata::Alias {
