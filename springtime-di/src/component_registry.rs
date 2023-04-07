@@ -31,6 +31,7 @@ use thiserror::Error;
 pub type Constructor = fn(
     instance_provider: &mut dyn ComponentInstanceProvider,
 ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError>;
+
 #[cfg(feature = "async")]
 pub type Constructor =
     fn(

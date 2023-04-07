@@ -126,13 +126,14 @@ use crate::instance_provider::{
 /// make the system work, your component instances must be wrapped in a [ComponentInstancePtr].
 /// Please see the module-level documentation for more information.
 pub trait Component: ComponentDowncast<Self> + Sized {
-    /// Creates an instance of this component using dependencies from given [ComponentInstanceProvider].
     #[cfg(not(feature = "async"))]
+    /// Creates an instance of this component using dependencies from given [ComponentInstanceProvider].
     fn create(
         instance_provider: &mut dyn ComponentInstanceProvider,
     ) -> Result<Self, ComponentInstanceProviderError>;
 
     #[cfg(feature = "async")]
+    /// Creates an instance of this component using dependencies from given [ComponentInstanceProvider].
     fn create(
         instance_provider: &mut (dyn ComponentInstanceProvider + Sync + Send),
     ) -> BoxFuture<Result<Self, ComponentInstanceProviderError>>;

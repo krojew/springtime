@@ -51,9 +51,9 @@ pub type CastFunction =
 /// Generic provider for component instances.
 #[cfg_attr(test, automock)]
 pub trait ComponentInstanceProvider {
+    #[cfg(feature = "async")]
     /// Tries to return a primary instance of a given component. A primary component is either the
     /// only one registered or one marked as primary.
-    #[cfg(feature = "async")]
     fn primary_instance(
         &mut self,
         type_id: TypeId,
@@ -63,15 +63,17 @@ pub trait ComponentInstanceProvider {
     >;
 
     #[cfg(not(feature = "async"))]
+    /// Tries to return a primary instance of a given component. A primary component is either the
+    /// only one registered or one marked as primary.
     fn primary_instance(
         &mut self,
         type_id: TypeId,
     ) -> Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError>;
 
+    #[cfg(feature = "async")]
     /// Tries to instantiate and return all registered components for given type, stopping on first
     /// error. Be aware this might be an expensive operation if the number of registered components
     /// is high.
-    #[cfg(feature = "async")]
     fn instances(
         &mut self,
         type_id: TypeId,
@@ -81,13 +83,16 @@ pub trait ComponentInstanceProvider {
     >;
 
     #[cfg(not(feature = "async"))]
+    /// Tries to instantiate and return all registered components for given type, stopping on first
+    /// error. Be aware this might be an expensive operation if the number of registered components
+    /// is high.
     fn instances(
         &mut self,
         type_id: TypeId,
     ) -> Result<Vec<(ComponentInstanceAnyPtr, CastFunction)>, ComponentInstanceProviderError>;
 
-    /// Tries to return an instance with the given name and type.
     #[cfg(feature = "async")]
+    /// Tries to return an instance with the given name and type.
     fn instance_by_name(
         &mut self,
         name: &str,
@@ -98,6 +103,7 @@ pub trait ComponentInstanceProvider {
     >;
 
     #[cfg(not(feature = "async"))]
+    /// Tries to return an instance with the given name and type.
     fn instance_by_name(
         &mut self,
         name: &str,
@@ -107,62 +113,69 @@ pub trait ComponentInstanceProvider {
 
 /// Helper trait for [ComponentInstanceProvider] providing strongly-typed access.
 pub trait TypedComponentInstanceProvider {
-    /// Typesafe version of [ComponentInstanceProvider::primary_instance].
     #[cfg(feature = "async")]
+    /// Typesafe version of [ComponentInstanceProvider::primary_instance].
     fn primary_instance_typed<T: Injectable + ?Sized>(
         &mut self,
     ) -> BoxFuture<'_, Result<ComponentInstancePtr<T>, ComponentInstanceProviderError>>;
 
     #[cfg(not(feature = "async"))]
+    /// Typesafe version of [ComponentInstanceProvider::primary_instance].
     fn primary_instance_typed<T: Injectable + ?Sized>(
         &mut self,
     ) -> Result<ComponentInstancePtr<T>, ComponentInstanceProviderError>;
 
+    #[cfg(feature = "async")]
     /// Tries to get an instance like [TypedComponentInstanceProvider::primary_instance_typed] does,
     /// but returns `None` on missing instance.
-    #[cfg(feature = "async")]
     fn primary_instance_option<T: Injectable + ?Sized>(
         &mut self,
     ) -> BoxFuture<'_, Result<Option<ComponentInstancePtr<T>>, ComponentInstanceProviderError>>;
 
     #[cfg(not(feature = "async"))]
+    /// Tries to get an instance like [TypedComponentInstanceProvider::primary_instance_typed] does,
+    /// but returns `None` on missing instance.
     fn primary_instance_option<T: Injectable + ?Sized>(
         &mut self,
     ) -> Result<Option<ComponentInstancePtr<T>>, ComponentInstanceProviderError>;
 
-    /// Typesafe version of [ComponentInstanceProvider::instances].
     #[cfg(feature = "async")]
+    /// Typesafe version of [ComponentInstanceProvider::instances].
     fn instances_typed<T: Injectable + ?Sized>(
         &mut self,
     ) -> BoxFuture<'_, Result<Vec<ComponentInstancePtr<T>>, ComponentInstanceProviderError>>;
 
     #[cfg(not(feature = "async"))]
+    /// Typesafe version of [ComponentInstanceProvider::instances].
     fn instances_typed<T: Injectable + ?Sized>(
         &mut self,
     ) -> Result<Vec<ComponentInstancePtr<T>>, ComponentInstanceProviderError>;
 
-    /// Typesafe version of [ComponentInstanceProvider::instance_by_name].
     #[cfg(feature = "async")]
+    /// Typesafe version of [ComponentInstanceProvider::instance_by_name].
     fn instance_by_name_typed<T: Injectable + ?Sized>(
         &mut self,
         name: &str,
     ) -> BoxFuture<'_, Result<ComponentInstancePtr<T>, ComponentInstanceProviderError>>;
 
     #[cfg(not(feature = "async"))]
+    /// Typesafe version of [ComponentInstanceProvider::instance_by_name].
     fn instance_by_name_typed<T: Injectable + ?Sized>(
         &mut self,
         name: &str,
     ) -> Result<ComponentInstancePtr<T>, ComponentInstanceProviderError>;
 
+    #[cfg(feature = "async")]
     /// Tries to get an instance like [TypedComponentInstanceProvider::instance_by_name_typed] does,
     /// but returns `None` on missing instance.
-    #[cfg(feature = "async")]
     fn instance_by_name_option<T: Injectable + ?Sized>(
         &mut self,
         name: &str,
     ) -> BoxFuture<'_, Result<Option<ComponentInstancePtr<T>>, ComponentInstanceProviderError>>;
 
     #[cfg(not(feature = "async"))]
+    /// Tries to get an instance like [TypedComponentInstanceProvider::instance_by_name_typed] does,
+    /// but returns `None` on missing instance.
     fn instance_by_name_option<T: Injectable + ?Sized>(
         &mut self,
         name: &str,
