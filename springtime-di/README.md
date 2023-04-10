@@ -1,17 +1,22 @@
 # Springtime Dependency Injection
 
-[![crates.io version](https://img.shields.io/crates/v/springtime-di.svg)](https://crates.io/crates/springtime-di) 
-![build status](https://github.com/krojew/springtime/actions/workflows/rust.yml/badge.svg) 
+[![crates.io version](https://img.shields.io/crates/v/springtime-di.svg)](https://crates.io/crates/springtime-di)
+![build status](https://github.com/krojew/springtime/actions/workflows/rust.yml/badge.svg)
 ![Maintenance](https://img.shields.io/maintenance/yes/2023)
 
-A dependency injection crate inspired by the [Spring Framework](https://spring.io/) in Java.
+A dependency injection crate inspired by
+the [Spring Framework](https://spring.io/) in Java.
 
-The philosophy of *Springtime* is to provide the means of easy dependency injection without unnecessary manual  
-configuration, e.g. without the need to explicitly create dependencies and  storing them in containers. As much work
-as possible is placed on compile-time metadata creation  and automatic component discovery, thus allowing users to focus 
-on the _usage_ of components, rather than their _creation_ and _management_. With an accent placed on attributes, 
-dependency configuration becomes declarative (_what I want to accomplish_) leaving the gritty details the framework
-itself (_how to accomplish what was requested_).
+The philosophy of *Springtime* is to provide the means of easy dependency
+injection without unnecessary manual configuration, e.g. without the need to
+explicitly create dependencies and storing them in containers. The core concept
+is the `Component` - something that can be created, injected, and managed by the
+framework. As much work as possible is placed on compile-time metadata creation
+and automatic component discovery, thus allowing users to focus on the _usage_
+of components, rather than their _creation_ and _management_. With an accent
+placed on attributes, dependency configuration becomes declarative (_what I want
+to accomplish_) leaving the gritty details the framework itself (_how to
+accomplish what was requested_).
 
 ## Features
 
@@ -23,14 +28,15 @@ itself (_how to accomplish what was requested_).
 * Custom constructor functions
 * Per-field configurable initialization
 * Customizable instance scopes
-* Async + sync support
+* Async + sync support (runtime agnostic)
 
 ## Basic usage
 
-*Springtime* is highly configurable, but the most basic usage example is quite simple and consists of using a few
-attributes to fully configure the dependency chain. For **tutorial**, advanced features, and patterns, please look at
-the [examples](https://github.com/krojew/springtime/tree/master/springtime-di/examples), which form a step-by-step 
-guide.
+*Springtime* is highly configurable, but the most basic usage example is quite
+simple and consists of using a few attributes to fully configure the dependency
+chain. For **tutorial**, advanced features, and patterns, please look at
+the [examples](https://github.com/krojew/springtime/tree/master/springtime-di/examples),
+which form a step-by-step guide.
 
 ```rust
 use springtime_di::factory::ComponentFactoryBuilder;

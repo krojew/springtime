@@ -25,16 +25,24 @@ pub type ErrorPtr = Arc<dyn Error + Send + Sync>;
 /// Errors related to creating and managing components.
 #[derive(Error, Debug, Clone)]
 pub enum ComponentInstanceProviderError {
+    /// Primary instance of a given component is not specified, if many components exist for a given
+    /// type, or not component registered at all.
     #[error("Cannot find a primary instance for component '{0:?}' - either none or multiple exists without a primary marker.")]
     NoPrimaryInstance(TypeId),
+    /// Tired to case one type to another, incompatible one.
     #[error("Tried to downcast component to incompatible type: {0:?}")]
     IncompatibleComponent(TypeId),
+    /// Cannot find component with given name.
     #[error("Cannot find named component: {0}")]
     NoNamedInstance(String),
+    /// Component registered for unknown scope - possibly missing associated
+    /// [ScopeFactory](crate::scope::ScopeFactory).
     #[error("Unrecognized scope: {0}")]
     UnrecognizedScope(String),
     #[error("Detected dependency cycle for: {0:?}")]
+    /// Found a cycle when creating given type.
     DependencyCycle(TypeId),
+    /// Custom constructor returned an error.
     #[error("Error in component constructor: {0}")]
     ConstructorError(#[source] ErrorPtr),
 }
