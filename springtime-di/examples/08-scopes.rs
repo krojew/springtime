@@ -1,7 +1,9 @@
 // note: this example assumes you've analyzed the previous one
 
 use springtime_di::factory::ComponentFactoryBuilder;
-use springtime_di::instance_provider::{ComponentInstancePtr, TypedComponentInstanceProvider};
+use springtime_di::instance_provider::{
+    ComponentInstancePtr, ErrorPtr, TypedComponentInstanceProvider,
+};
 use springtime_di::{component_alias, injectable, Component};
 use std::sync::Mutex;
 
@@ -33,12 +35,12 @@ impl TestTrait for TestDependency {
 }
 
 impl TestDependency {
-    fn new() -> Self {
+    fn new() -> Result<Self, ErrorPtr> {
         // to show we're constructed on each request, let's print some info
         println!("TestDependency created!");
-        Self {
+        Ok(Self {
             some_state: Mutex::default(),
-        }
+        })
     }
 }
 

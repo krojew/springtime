@@ -12,10 +12,10 @@ mod component_derive_test {
     use springtime_di::future::BoxFuture;
     #[cfg(feature = "async")]
     use springtime_di::future::FutureExt;
-    use springtime_di::instance_provider::ComponentInstanceProviderError;
     use springtime_di::instance_provider::{
         CastFunction, ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
     };
+    use springtime_di::instance_provider::{ComponentInstanceProviderError, ErrorPtr};
     use springtime_di::{component_alias, injectable, Component};
     use std::any::{Any, TypeId};
 
@@ -115,11 +115,11 @@ mod component_derive_test {
         _: ComponentInstancePtr<dyn TestTrait1 + Sync + Send>,
         _: Vec<ComponentInstancePtr<dyn TestTrait1 + Sync + Send>>,
         _: Option<ComponentInstancePtr<TestComponent2>>,
-    ) -> TestComponent3 {
-        TestComponent3 {
+    ) -> Result<TestComponent3, ErrorPtr> {
+        Ok(TestComponent3 {
             _dependency: dependency,
             _ignored: 0,
-        }
+        })
     }
 
     #[cfg(all(feature = "threadsafe", not(feature = "async")))]
@@ -129,11 +129,11 @@ mod component_derive_test {
         _: ComponentInstancePtr<dyn TestTrait1 + Sync + Send>,
         _: Vec<ComponentInstancePtr<dyn TestTrait1 + Sync + Send>>,
         _: Option<ComponentInstancePtr<TestComponent2>>,
-    ) -> TestComponent3 {
-        TestComponent3 {
+    ) -> Result<TestComponent3, ErrorPtr> {
+        Ok(TestComponent3 {
             _dependency: dependency,
             _ignored: 0,
-        }
+        })
     }
 
     #[cfg(all(not(feature = "threadsafe"), not(feature = "async")))]
@@ -143,11 +143,11 @@ mod component_derive_test {
         _: ComponentInstancePtr<dyn TestTrait1>,
         _: Vec<ComponentInstancePtr<dyn TestTrait1>>,
         _: Option<ComponentInstancePtr<TestComponent2>>,
-    ) -> TestComponent3 {
-        TestComponent3 {
+    ) -> Result<TestComponent3, ErrorPtr> {
+        Ok(TestComponent3 {
             _dependency: dependency,
             _ignored: 0,
-        }
+        })
     }
 
     fn dummy_expr() -> i8 {

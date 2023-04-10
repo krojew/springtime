@@ -319,10 +319,13 @@ fn make_constructor_call(
     #[cfg(not(feature = "async"))]
     let call = quote! {
         #constructor(#fields)
+            .map_err(|error| ComponentInstanceProviderError::ConstructorError(error))
     };
     #[cfg(feature = "async")]
     let call = quote! {
-        #constructor(#fields).await
+        #constructor(#fields)
+            .await
+            .map_err(|error| ComponentInstanceProviderError::ConstructorError(error))
     };
 
     Ok(call)
@@ -405,9 +408,15 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
             make_constructor_call(fields, constructor, constructor_parameters)?
         } else {
             match fields {
-                Fields::Named(fields) => make_named_struct(fields)?,
-                Fields::Unnamed(fields) => make_unnamed_struct(fields)?,
-                Fields::Unit => quote! { Self },
+                Fields::Named(fields) => {
+                    let component = make_named_struct(fields)?;
+                    quote!(Ok(#component))
+                }
+                Fields::Unnamed(fields) => {
+                    let component = make_unnamed_struct(fields)?;
+                    quote!(Ok(#component))
+                }
+                Fields::Unit => quote! { Ok(Self) },
             }
         };
         let names = attributes
@@ -428,6 +437,7 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
             .and_then(|attributes| attributes.scope.clone())
             .map(|scope| quote!(#scope))
             .unwrap_or_else(|| quote!(springtime_di::scope::SINGLETON));
+
         #[cfg(not(feature = "async"))]
         let constructor = quote! {
             fn constructor(
@@ -436,6 +446,7 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
                 #ident::create(instance_provider).map(|p| ComponentInstancePtr::new(p) as ComponentInstanceAnyPtr)
             }
         };
+
         #[cfg(feature = "async")]
         let constructor = quote! {
             fn constructor(
@@ -447,25 +458,27 @@ pub fn expand_component(input: &DeriveInput) -> Result<TokenStream> {
                 }.boxed()
             }
         };
+
         #[cfg(not(feature = "async"))]
         let create = quote! {
             fn create(
                 instance_provider: &mut dyn springtime_di::instance_provider::ComponentInstanceProvider,
             ) -> Result<Self, springtime_di::instance_provider::ComponentInstanceProviderError> {
-                use springtime_di::instance_provider::TypedComponentInstanceProvider;
+                use springtime_di::instance_provider::{ComponentInstanceProviderError, TypedComponentInstanceProvider};
                 use std::ops::Deref;
-                Ok(#generation)
+                #generation
             }
         };
+
         #[cfg(feature = "async")]
         let create = quote! {
             fn create(
                 instance_provider: &mut (dyn springtime_di::instance_provider::ComponentInstanceProvider + Sync + Send),
             ) -> springtime_di::future::BoxFuture<Result<Self, springtime_di::instance_provider::ComponentInstanceProviderError>> {
                 use springtime_di::future::FutureExt;
-                use springtime_di::instance_provider::TypedComponentInstanceProvider;
+                use springtime_di::instance_provider::{ComponentInstanceProviderError, TypedComponentInstanceProvider};
                 use std::ops::Deref;
-                async move { Ok(#generation) }.boxed()
+                async move { #generation }.boxed()
             }
         };
 

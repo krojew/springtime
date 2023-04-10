@@ -10,14 +10,20 @@ use itertools::Itertools;
 #[cfg(test)]
 use mockall::automock;
 use std::any::{Any, TypeId};
+use std::error::Error;
 #[cfg(not(feature = "threadsafe"))]
 use std::rc::Rc;
 #[cfg(feature = "threadsafe")]
 use std::sync::Arc;
 use thiserror::Error;
 
+#[cfg(not(feature = "threadsafe"))]
+pub type ErrorPtr = Rc<dyn Error>;
+#[cfg(feature = "threadsafe")]
+pub type ErrorPtr = Arc<dyn Error + Send + Sync>;
+
 /// Errors related to creating and managing components.
-#[derive(Error, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum ComponentInstanceProviderError {
     #[error("Cannot find a primary instance for component '{0:?}' - either none or multiple exists without a primary marker.")]
     NoPrimaryInstance(TypeId),
@@ -29,6 +35,8 @@ pub enum ComponentInstanceProviderError {
     UnrecognizedScope(String),
     #[error("Detected dependency cycle for: {0:?}")]
     DependencyCycle(TypeId),
+    #[error("Error in component constructor: {0}")]
+    ConstructorError(#[source] ErrorPtr),
 }
 
 #[cfg(not(feature = "threadsafe"))]

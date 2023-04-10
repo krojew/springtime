@@ -1,7 +1,9 @@
 // note: this example assumes you've analyzed the previous one
 
 use springtime_di::factory::ComponentFactoryBuilder;
-use springtime_di::instance_provider::{ComponentInstancePtr, TypedComponentInstanceProvider};
+use springtime_di::instance_provider::{
+    ComponentInstancePtr, ErrorPtr, TypedComponentInstanceProvider,
+};
 use springtime_di::{component_alias, injectable, Component};
 
 #[injectable]
@@ -35,11 +37,13 @@ struct TestComponent {
 impl TestComponent {
     // this will be called by the framework when TestComponent needs to be constructed
     // naturally, Option<> and Vec<> are also supported
-    fn new(dependency: ComponentInstancePtr<dyn TestTrait + Send + Sync>) -> Self {
-        Self {
+    fn new(
+        dependency: ComponentInstancePtr<dyn TestTrait + Send + Sync>,
+    ) -> Result<Self, ErrorPtr> {
+        Ok(Self {
             dependency,
             message: "world!".to_string(),
-        }
+        })
     }
 }
 

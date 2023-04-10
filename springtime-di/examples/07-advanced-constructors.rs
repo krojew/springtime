@@ -1,7 +1,9 @@
 // note: this example assumes you've analyzed the previous one
 
 use springtime_di::factory::ComponentFactoryBuilder;
-use springtime_di::instance_provider::{ComponentInstancePtr, TypedComponentInstanceProvider};
+use springtime_di::instance_provider::{
+    ComponentInstancePtr, ErrorPtr, TypedComponentInstanceProvider,
+};
 use springtime_di::{component_alias, injectable, Component};
 
 #[injectable]
@@ -44,12 +46,14 @@ struct TestComponent {
 impl TestComponent {
     // a common pattern in constructors is to compute some state based on other (implicit)
     // dependencies
-    fn new(dependencies: Vec<ComponentInstancePtr<dyn TestTrait + Send + Sync>>) -> Self {
-        Self {
+    fn new(
+        dependencies: Vec<ComponentInstancePtr<dyn TestTrait + Send + Sync>>,
+    ) -> Result<Self, ErrorPtr> {
+        Ok(Self {
             important_number: dependencies
                 .iter()
                 .fold(0, |result, dep| result + dep.compute_important_number()),
-        }
+        })
     }
 }
 

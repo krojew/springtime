@@ -433,10 +433,10 @@ mod tests {
                 .return_const(Some(definition));
 
             let mut factory = create_factory(registry);
-            assert_eq!(
+            assert!(matches!(
                 factory.primary_instance(id).unwrap_err(),
-                ComponentInstanceProviderError::DependencyCycle(id)
-            );
+                ComponentInstanceProviderError::DependencyCycle(id) if id == TypeId::of::<i8>()
+            ));
         }
 
         #[test]
@@ -451,10 +451,10 @@ mod tests {
                 .return_const(None);
 
             let mut factory = create_factory(registry);
-            assert_eq!(
+            assert!(matches!(
                 factory.primary_instance(id).unwrap_err(),
-                ComponentInstanceProviderError::NoPrimaryInstance(id)
-            );
+                ComponentInstanceProviderError::NoPrimaryInstance(id) if id == TypeId::of::<i8>()
+            ));
         }
 
         #[test]
@@ -477,10 +477,10 @@ mod tests {
                 .return_const(Some(definition));
 
             let mut factory = create_factory(registry);
-            assert_eq!(
+            assert!(matches!(
                 factory.primary_instance(id).unwrap_err(),
-                ComponentInstanceProviderError::UnrecognizedScope(SINGLETON.to_string())
-            );
+                ComponentInstanceProviderError::UnrecognizedScope(scope) if scope == SINGLETON
+            ));
         }
 
         #[test]
@@ -503,10 +503,10 @@ mod tests {
                 .return_const(Some(definition));
 
             let mut factory = create_factory(registry);
-            assert_eq!(
+            assert!(matches!(
                 factory.primary_instance(id).unwrap_err(),
-                error_constructor(&mut factory).unwrap_err()
-            );
+                ComponentInstanceProviderError::NoPrimaryInstance(_)
+            ));
         }
 
         #[test]
