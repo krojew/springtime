@@ -80,6 +80,9 @@ pub struct ComponentDefinition {
     /// can be a need to find out what is the leaf type.
     pub resolved_type_id: TypeId,
 
+    /// Human-readable type name for reporting purposes.
+    pub resolved_type_name: String,
+
     /// Constructor method for type-erased instances.
     #[derivative(Debug = "ignore")]
     pub constructor: Constructor,
@@ -485,6 +488,7 @@ mod registry {
     };
     use fxhash::{FxHashMap, FxHashSet};
     use std::any::TypeId;
+    use tracing::debug;
 
     #[derive(Default, Clone, Debug)]
     pub(super) struct NamedComponentDefinitionMap {
@@ -531,6 +535,14 @@ mod registry {
             target_name: &str,
             metadata: &ComponentAliasMetadata,
         ) -> Result<(), ComponentDefinitionRegistryError> {
+            debug!(
+                ?alias_type,
+                alias_name,
+                ?target_type,
+                target_name,
+                "Registering new alias."
+            );
+
             let mut target_definitions = self
                 .definitions
                 .get(&target_type)
@@ -598,6 +610,8 @@ mod registry {
             metadata: &ComponentMetadata,
             allow_definition_overriding: bool,
         ) -> Result<(), ComponentDefinitionRegistryError> {
+            debug!(?target, target_name, "Registering new component.");
+
             if !allow_definition_overriding {
                 if let Some(name) = metadata.names.iter().find_map(|name| {
                     if self.names.contains(name) {
@@ -617,6 +631,7 @@ mod registry {
                 is_primary: false,
                 scope: metadata.scope.clone(),
                 resolved_type_id: target,
+                resolved_type_name: target_name.to_string(),
                 constructor: metadata.constructor,
                 cast: metadata.cast,
             };
@@ -1088,7 +1103,7 @@ mod tests {
             ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstanceProviderError,
             ComponentInstancePtr,
         };
-        use std::any::{Any, TypeId};
+        use std::any::{type_name, Any, TypeId};
 
         struct TestComponent;
 
@@ -1162,6 +1177,7 @@ mod tests {
                 is_primary: false,
                 scope: "".to_string(),
                 resolved_type_id: TypeId::of::<TestComponent>(),
+                resolved_type_name: type_name::<TestComponent>().to_string(),
                 constructor: test_constructor,
                 cast: test_cast,
             };

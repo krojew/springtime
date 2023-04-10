@@ -119,7 +119,7 @@ mod tests {
             ComponentInstanceAnyPtr, ComponentInstanceProvider, ComponentInstancePtr,
         };
         use crate::scope::{PrototypeScopeFactory, ScopeFactory, SingletonScopeFactory};
-        use std::any::{Any, TypeId};
+        use std::any::{type_name, Any, TypeId};
 
         fn test_constructor(
             _instance_provider: &mut dyn ComponentInstanceProvider,
@@ -141,6 +141,7 @@ mod tests {
                 is_primary: false,
                 scope: "".to_string(),
                 resolved_type_id: TypeId::of::<u8>(),
+                resolved_type_name: type_name::<u8>().to_string(),
                 constructor: test_constructor,
                 cast: test_cast,
             }

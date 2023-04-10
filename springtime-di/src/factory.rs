@@ -20,6 +20,7 @@ use fxhash::{FxHashMap, FxHashSet};
 #[cfg(not(feature = "async"))]
 use itertools::Itertools;
 use std::any::TypeId;
+use tracing::debug;
 
 #[cfg(not(feature = "threadsafe"))]
 pub type ComponentDefinitionRegistryPtr = Box<dyn ComponentDefinitionRegistry>;
@@ -200,6 +201,11 @@ impl ComponentFactory {
             return Ok(instance);
         }
 
+        debug!(
+            resolved_type_name = definition.resolved_type_name,
+            "Creating new component instance."
+        );
+
         let instance = self.call_constructor(&definition).await?;
 
         self.store_instance_in_scope(definition, instance.clone())?;
@@ -214,6 +220,11 @@ impl ComponentFactory {
         if let Some(instance) = self.check_scope_instance(definition)? {
             return Ok(instance);
         }
+
+        debug!(
+            resolved_type_name = definition.resolved_type_name,
+            "Creating new component instance."
+        );
 
         let instance = self.call_constructor(definition)?;
 
@@ -324,6 +335,7 @@ impl ComponentInstanceProvider for ComponentFactory {
     }
 }
 
+//noinspection DuplicatedCode
 #[cfg(test)]
 mod tests {
     #[cfg(not(feature = "async"))]
@@ -340,7 +352,7 @@ mod tests {
             MockScope, MockScopeFactory, PrototypeScopeFactory, ScopePtr, PROTOTYPE, SINGLETON,
         };
         use mockall::predicate::*;
-        use std::any::{Any, TypeId};
+        use std::any::{type_name, Any, TypeId};
 
         fn cast(
             instance: ComponentInstanceAnyPtr,
@@ -377,6 +389,7 @@ mod tests {
                     is_primary: false,
                     scope: PROTOTYPE.to_string(),
                     resolved_type_id: TypeId::of::<i8>(),
+                    resolved_type_name: type_name::<i8>().to_string(),
                     constructor,
                     cast,
                 },
@@ -421,6 +434,7 @@ mod tests {
                 is_primary: false,
                 scope: PROTOTYPE.to_string(),
                 resolved_type_id: TypeId::of::<i8>(),
+                resolved_type_name: type_name::<i8>().to_string(),
                 constructor: recursive_constructor,
                 cast,
             };
@@ -465,6 +479,7 @@ mod tests {
                 is_primary: false,
                 scope: SINGLETON.to_string(),
                 resolved_type_id: TypeId::of::<i8>(),
+                resolved_type_name: type_name::<i8>().to_string(),
                 constructor,
                 cast,
             };
@@ -491,6 +506,7 @@ mod tests {
                 is_primary: false,
                 scope: PROTOTYPE.to_string(),
                 resolved_type_id: TypeId::of::<i8>(),
+                resolved_type_name: type_name::<i8>().to_string(),
                 constructor: error_constructor,
                 cast,
             };
