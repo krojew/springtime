@@ -206,7 +206,7 @@ impl ComponentFactory {
             "Creating new component instance."
         );
 
-        let instance = self.call_constructor(&definition).await?;
+        let instance = self.call_constructor(definition).await?;
 
         self.store_instance_in_scope(definition, instance.clone())?;
         Ok((instance, definition.cast))

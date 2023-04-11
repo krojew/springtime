@@ -4,8 +4,8 @@
 ![build status](https://github.com/krojew/springtime/actions/workflows/rust.yml/badge.svg)
 ![Maintenance](https://img.shields.io/maintenance/yes/2023)
 
-A dependency injection crate inspired by
-the [Spring Framework](https://spring.io/) in Java.
+A dependency injection crate inspired by the
+[Spring Framework](https://spring.io/) in Java.
 
 The philosophy of *Springtime* is to provide the means of easy dependency
 injection without unnecessary manual configuration, e.g. without the need to
