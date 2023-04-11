@@ -7,6 +7,7 @@ use springtime_di::instance_provider::{
     TypedComponentInstanceProvider,
 };
 use thiserror::Error;
+use tracing::info;
 
 #[derive(Clone, Error, Debug)]
 pub enum ApplicationError {
@@ -43,6 +44,8 @@ pub struct Application<CIP: ApplicationComponentInstanceProvider> {
 impl<CIP: ApplicationComponentInstanceProvider> Application<CIP> {
     #[cfg(feature = "async")]
     pub async fn run(&mut self) -> Result<(), ApplicationError> {
+        info!("Searching for application runners...");
+
         let mut runners = self
             .instance_provider
             .instances_typed::<ApplicationRunnerPtr>()
@@ -50,6 +53,8 @@ impl<CIP: ApplicationComponentInstanceProvider> Application<CIP> {
             .map_err(ApplicationError::RunnerInjectionError)?;
 
         runners.sort_unstable_by_key(|runner| -runner.priority());
+
+        info!("Running application runners...");
 
         for runner in &runners {
             runner.run().await.map_err(ApplicationError::RunnerError)?;
@@ -60,12 +65,16 @@ impl<CIP: ApplicationComponentInstanceProvider> Application<CIP> {
 
     #[cfg(not(feature = "async"))]
     pub fn run(&mut self) -> Result<(), ApplicationError> {
+        info!("Searching for application runners...");
+
         let mut runners = self
             .instance_provider
             .instances_typed::<ApplicationRunnerPtr>()
             .map_err(ApplicationError::RunnerInjectionError)?;
 
         runners.sort_unstable_by_key(|runner| -runner.priority());
+
+        info!("Running application runners...");
 
         for runner in &runners {
             runner.run().map_err(ApplicationError::RunnerError)?;
