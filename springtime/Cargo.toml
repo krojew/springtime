@@ -18,7 +18,7 @@ threadsafe = ["springtime-di/threadsafe"]
 
 [dependencies]
 derive_more = "0.99.17"
-springtime-di = { version = "0.3.0", path = "../springtime-di" }
+springtime-di = { version = "0.3.0", path = "../springtime-di", default-features = false, features = ["derive"] }
 thiserror = "1.0.39"
 
 [dev-dependencies]
