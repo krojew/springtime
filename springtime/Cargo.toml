@@ -3,7 +3,6 @@ name = "springtime"
 version = "0.1.0"
 edition.workspace = true
 authors.workspace = true
-rust-version = "1.62"
 description = "Dependency injection based application bootstrapping and execution crate."
 documentation = "https://docs.rs/springtime"
 repository.workspace = true
