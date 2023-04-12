@@ -105,14 +105,20 @@ impl<CIP: ComponentInstanceProvider> Application<CIP> {
         let mut runners = self
             .instance_provider
             .instances_typed::<ApplicationRunnerPtr>()
-            .map_err(ApplicationError::RunnerInjectionError)?;
+            .map_err(|error| {
+                error!(%error, "Error retrieving application runners!");
+                ApplicationError::RunnerInjectionError(error)
+            })?;
 
         runners.sort_unstable_by_key(|runner| -runner.priority());
 
         info!("Running application runners...");
 
         for runner in &runners {
-            runner.run().map_err(ApplicationError::RunnerError)?;
+            runner.run().map_err(|error| {
+                error!(%error, "Error running application runner!");
+                ApplicationError::RunnerError(error)
+            })?;
         }
 
         Ok(())
