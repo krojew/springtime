@@ -15,7 +15,9 @@ The core concept revolves around providing basic application services, e.g.
 logging, and running ordered `ApplicationRunner`s. An `ApplicationRunner`
 represents root application service which starts the application logic. Examples
 of runners are HTTP servers, messaging systems consumers, or even command line
-applications.
+applications. This crate provides the building blocks for more specialized 
+crates which like to utilize *Springtime* to provide additional functionality,
+e.g. web server runners.
 
 ## Features
 

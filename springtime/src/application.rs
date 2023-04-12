@@ -17,14 +17,19 @@ use tracing_subscriber::{fmt, EnvFilter};
 
 #[derive(Clone, Error, Debug)]
 pub enum ApplicationError {
+    /// There was an error retrieving application runners from the component instance factory.
     #[error("Error retrieving runners: {0}")]
     RunnerInjectionError(ComponentInstanceProviderError),
+    /// A runner returned an error.
     #[error("Runner error: {0}")]
     RunnerError(ErrorPtr),
+    /// Cannot find any [ApplicationConfigProvider].
     #[error("Cannot retrieve application config provider: {0}")]
     MissingApplicationConfigProvider(ComponentInstanceProviderError),
+    /// An error occurred while creating the default [Application].
     #[error("Error creating default application: {0}")]
     DefaultInitializationError(ComponentDefinitionRegistryError),
+    /// [ApplicationConfigProvider] returned an error.
     #[error("Cannot retrieve application config: {0}")]
     CannotRetrieveApplicationConfig(ErrorPtr),
 }

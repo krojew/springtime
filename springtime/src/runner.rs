@@ -13,7 +13,7 @@ pub type ApplicationRunnerPtr = dyn ApplicationRunner + Send + Sync;
 #[cfg(not(feature = "threadsafe"))]
 pub type ApplicationRunnerPtr = dyn ApplicationRunner;
 
-/// Runs application logic. Runners are ran by the [Application](crate::application::Application)
+/// Runs application logic. Runners are run by the [Application](crate::application::Application)
 /// and are discovered by the dependency injection framework.
 #[injectable]
 #[cfg_attr(test, automock)]
