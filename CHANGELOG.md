@@ -1,3 +1,9 @@
+## [springtime-di] 0.3.1
+
+### Fixed
+
+* Fixed passing down selected features.
+
 ## [springtime-di] 0.3.0
 
 ### New
