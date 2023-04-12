@@ -14,4 +14,5 @@
 //! * `async` - turn all run functions async
 
 pub mod application;
+pub mod config;
 pub mod runner;

@@ -14,13 +14,23 @@ readme = "README.md"
 async = ["springtime-di/async", "threadsafe"]
 default = ["async"]
 threadsafe = ["springtime-di/threadsafe"]
+# only used for async examples - not for client usage
+async-examples = ["async", "tokio"]
 
 [dependencies]
+config = "0.13.3"
 derive_more = "0.99.17"
+serde = "1.0.159"
 springtime-di = { version = "0.3.0", path = "../springtime-di", default-features = false, features = ["derive"] }
 thiserror = "1.0.39"
+tokio = { version = "1.27.0", features = ["full"], optional = true }
 tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
 
 [dev-dependencies]
 mockall = "0.11.4"
 tokio = { version = "1.27.0", features = ["rt", "macros"] }
+
+[[example]]
+name = "00-basic-app"
+required-features = ["async-examples"]

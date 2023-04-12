@@ -1,13 +1,19 @@
 //! Core application framework functionality.
 
+use crate::config::ApplicationConfig;
 use crate::runner::ApplicationRunnerPtr;
 use derive_more::Constructor;
+use springtime_di::component_registry::ComponentDefinitionRegistryError;
+use springtime_di::factory::{ComponentFactory, ComponentFactoryBuilder};
 use springtime_di::instance_provider::{
     ComponentInstanceProvider, ComponentInstanceProviderError, ErrorPtr,
     TypedComponentInstanceProvider,
 };
 use thiserror::Error;
-use tracing::info;
+use tracing::{dispatcher, error, info};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{fmt, EnvFilter};
 
 #[derive(Clone, Error, Debug)]
 pub enum ApplicationError {
@@ -15,56 +21,85 @@ pub enum ApplicationError {
     RunnerInjectionError(ComponentInstanceProviderError),
     #[error("Runner error: {0}")]
     RunnerError(ErrorPtr),
+    #[error("Cannot retrieve application config: {0}")]
+    MissingApplicationConfig(ComponentInstanceProviderError),
+    #[error("Error creating default application: {0}")]
+    DefaultInitializationError(ComponentDefinitionRegistryError),
 }
-
-/// Helper trait for component instance provider which can either be sync or async.
-#[cfg(feature = "async")]
-pub trait ApplicationComponentInstanceProvider: ComponentInstanceProvider + Send + Sync {}
-
-/// Helper trait for component instance provider which can either be sync or async.
-#[cfg(not(feature = "async"))]
-pub trait ApplicationComponentInstanceProvider: ComponentInstanceProvider {}
-
-#[cfg(feature = "async")]
-impl<T: ComponentInstanceProvider + Send + Sync + ?Sized> ApplicationComponentInstanceProvider
-    for T
-{
-}
-
-#[cfg(not(feature = "async"))]
-impl<T: ComponentInstanceProvider + ?Sized> ApplicationComponentInstanceProvider for T {}
 
 /// Main entrypoint for the application. Bootstraps the application and runs
 /// [ApplicationRunners](crate::runner::ApplicationRunner).
 #[derive(Constructor)]
-pub struct Application<CIP: ApplicationComponentInstanceProvider> {
+#[cfg(feature = "async")]
+pub struct Application<CIP: ComponentInstanceProvider + Send + Sync> {
     instance_provider: CIP,
 }
 
-impl<CIP: ApplicationComponentInstanceProvider> Application<CIP> {
-    #[cfg(feature = "async")]
+/// Main entrypoint for the application. Bootstraps the application and runs
+/// [ApplicationRunners](crate::runner::ApplicationRunner).
+#[derive(Constructor)]
+#[cfg(not(feature = "async"))]
+pub struct Application<CIP: ComponentInstanceProvider> {
+    instance_provider: CIP,
+}
+
+#[cfg(feature = "async")]
+impl<CIP: ComponentInstanceProvider + Send + Sync> Application<CIP> {
     pub async fn run(&mut self) -> Result<(), ApplicationError> {
+        let _logger = self.install_logger().await?;
+
         info!("Searching for application runners...");
 
         let mut runners = self
             .instance_provider
             .instances_typed::<ApplicationRunnerPtr>()
             .await
-            .map_err(ApplicationError::RunnerInjectionError)?;
+            .map_err(|error| {
+                error!(%error, "Error retrieving application runners!");
+                ApplicationError::RunnerInjectionError(error)
+            })?;
 
         runners.sort_unstable_by_key(|runner| -runner.priority());
 
         info!("Running application runners...");
 
         for runner in &runners {
-            runner.run().await.map_err(ApplicationError::RunnerError)?;
+            runner.run().await.map_err(|error| {
+                error!(%error, "Error running application runner!");
+                ApplicationError::RunnerError(error)
+            })?;
         }
 
         Ok(())
     }
 
-    #[cfg(not(feature = "async"))]
+    async fn install_logger(
+        &mut self,
+    ) -> Result<Option<dispatcher::DefaultGuard>, ApplicationError> {
+        let config = self
+            .instance_provider
+            .primary_instance_typed::<ApplicationConfig>()
+            .await
+            .map_err(ApplicationError::MissingApplicationConfig)?;
+
+        if !config.install_tracing_logger {
+            return Ok(None);
+        }
+
+        Ok(Some(
+            tracing_subscriber::registry()
+                .with(EnvFilter::from_default_env())
+                .with(fmt::layer())
+                .set_default(),
+        ))
+    }
+}
+
+#[cfg(not(feature = "async"))]
+impl<CIP: ComponentInstanceProvider> Application<CIP> {
     pub fn run(&mut self) -> Result<(), ApplicationError> {
+        let _logger = self.install_logger()?;
+
         info!("Searching for application runners...");
 
         let mut runners = self
@@ -82,6 +117,33 @@ impl<CIP: ApplicationComponentInstanceProvider> Application<CIP> {
 
         Ok(())
     }
+
+    fn install_logger(&mut self) -> Result<Option<dispatcher::DefaultGuard>, ApplicationError> {
+        let config = self
+            .instance_provider
+            .primary_instance_typed::<ApplicationConfig>()
+            .map_err(ApplicationError::MissingApplicationConfig)?;
+
+        if !config.install_tracing_logger {
+            return Ok(None);
+        }
+
+        Ok(Some(
+            tracing_subscriber::registry()
+                .with(EnvFilter::from_default_env())
+                .with(fmt::layer())
+                .set_default(),
+        ))
+    }
+}
+
+/// Creates an [Application] with a sensible default configuration.
+pub fn create_default() -> Result<Application<ComponentFactory>, ApplicationError> {
+    let component_factory = ComponentFactoryBuilder::new()
+        .map_err(ApplicationError::DefaultInitializationError)?
+        .build();
+
+    Ok(Application::new(component_factory))
 }
 
 #[cfg(test)]

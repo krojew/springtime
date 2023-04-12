@@ -21,4 +21,5 @@ applications.
 
 * Automatic application logic discovery and running (based on DI)
 * Runner priorities
+* Configurable logging implementation (based on tracing)
 * Async + sync support (runtime agnostic)
