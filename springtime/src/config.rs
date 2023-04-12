@@ -1,12 +1,14 @@
-//! Framework configuration.
+//! Framework configuration is based on injecting an [ApplicationConfigProvider], which can later
+//! be used to retrieve [ApplicationConfig]. [Application](crate::application::Application) uses
+//! this config to configure itself, but it can also be injected into any other component.
 
-use config::{Config, Environment};
+use config::{Config, ConfigError, Environment};
 use serde::Deserialize;
 use springtime_di::component_registry::conditional::unregistered_component;
 #[cfg(feature = "async")]
 use springtime_di::future::{BoxFuture, FutureExt};
 use springtime_di::instance_provider::ErrorPtr;
-use springtime_di::Component;
+use springtime_di::{component_alias, injectable, Component};
 use std::error::Error;
 
 const CONFIG_ENV_PREFIX: &str = "SPRINGTIME";
@@ -23,13 +25,11 @@ fn convert_error<E: Error + 'static>(error: E) -> ErrorPtr {
     Rc::new(error) as ErrorPtr
 }
 
-/// Framework configuration which can be provided by injection.
+/// Framework configuration which can be provided by an [ApplicationConfigProvider].
 #[non_exhaustive]
-#[derive(Clone, Component, Debug)]
-#[component(constructor = "ApplicationConfig::init_from_environment", priority = -128, condition = "unregistered_component::<ApplicationConfig>")]
+#[derive(Clone, Debug)]
 pub struct ApplicationConfig {
-    /// Should a default global tracing logger be installed.
-    #[component(ignore)]
+    /// Should a default tracing logger be installed in the scope of the application.
     pub install_tracing_logger: bool,
 }
 
@@ -53,23 +53,71 @@ impl From<OptionalApplicationConfig> for ApplicationConfig {
 }
 
 impl ApplicationConfig {
-    #[cfg(feature = "async")]
-    fn init_from_environment() -> BoxFuture<'static, Result<Self, ErrorPtr>> {
-        async { Self::try_init() }.boxed()
-    }
-
-    #[cfg(not(feature = "async"))]
-    fn init_from_environment() -> Result<Self, ErrorPtr> {
-        Self::try_init()
-    }
-
-    fn try_init() -> Result<Self, ErrorPtr> {
+    fn init_from_environment() -> Result<Self, ConfigError> {
         Config::builder()
             .add_source(Environment::with_prefix(CONFIG_ENV_PREFIX))
             .build()
             .and_then(|config| config.try_deserialize::<OptionalApplicationConfig>())
             .map(|config| config.into())
-            .map_err(convert_error)
+    }
+}
+
+/// Provider for [ApplicationConfig]. The primary instance of the provider will be used to retrieve
+/// application configuration.
+#[injectable]
+pub trait ApplicationConfigProvider {
+    #[cfg(feature = "async")]
+    fn config(&self) -> BoxFuture<'_, Result<&ApplicationConfig, ErrorPtr>>;
+
+    #[cfg(not(feature = "async"))]
+    fn config(&self) -> Result<&ApplicationConfig, ErrorPtr>;
+}
+
+#[derive(Component)]
+#[cfg_attr(feature = "threadsafe", component(priority = -128, condition = "unregistered_component::<dyn ApplicationConfigProvider + Send + Sync>", constructor = "DefaultApplicationConfigProvider::new"))]
+#[cfg_attr(not(feature = "threadsafe"), component(priority = -128, condition = "unregistered_component::<dyn ApplicationConfigProvider>", constructor = "DefaultApplicationConfigProvider::new"))]
+struct DefaultApplicationConfigProvider {
+    // cached init result
+    #[component(ignore)]
+    config: Result<ApplicationConfig, ErrorPtr>,
+}
+
+impl DefaultApplicationConfigProvider {
+    #[cfg(feature = "async")]
+    fn new() -> BoxFuture<'static, Result<Self, ErrorPtr>> {
+        async {
+            Ok(Self {
+                config: ApplicationConfig::init_from_environment().map_err(convert_error),
+            })
+        }
+        .boxed()
+    }
+
+    #[cfg(not(feature = "async"))]
+    fn new() -> Result<Self, ErrorPtr> {
+        Ok(Self {
+            config: ApplicationConfig::init_from_environment().map_err(convert_error),
+        })
+    }
+
+    fn map_config(&self) -> Result<&ApplicationConfig, ErrorPtr> {
+        match &self.config {
+            Ok(config) => Ok(config),
+            Err(error) => Err(error.clone()),
+        }
+    }
+}
+
+#[component_alias]
+impl ApplicationConfigProvider for DefaultApplicationConfigProvider {
+    #[cfg(feature = "async")]
+    fn config(&self) -> BoxFuture<'_, Result<&ApplicationConfig, ErrorPtr>> {
+        async { self.map_config() }.boxed()
+    }
+
+    #[cfg(not(feature = "async"))]
+    fn config(&self) -> Result<&ApplicationConfig, ErrorPtr> {
+        self.map_config()
     }
 }
 

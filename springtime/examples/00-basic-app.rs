@@ -9,6 +9,7 @@ use springtime_di::{component_alias, Component};
 #[derive(Component)]
 struct HelloWorldRunner;
 
+//noinspection DuplicatedCode
 #[component_alias]
 impl ApplicationRunner for HelloWorldRunner {
     // note: BoxFuture is only needed when using the "async" feature

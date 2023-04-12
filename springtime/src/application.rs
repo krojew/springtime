@@ -1,6 +1,6 @@
 //! Core application framework functionality.
 
-use crate::config::ApplicationConfig;
+use crate::config::ApplicationConfigProvider;
 use crate::runner::ApplicationRunnerPtr;
 use derive_more::Constructor;
 use springtime_di::component_registry::ComponentDefinitionRegistryError;
@@ -21,10 +21,12 @@ pub enum ApplicationError {
     RunnerInjectionError(ComponentInstanceProviderError),
     #[error("Runner error: {0}")]
     RunnerError(ErrorPtr),
-    #[error("Cannot retrieve application config: {0}")]
-    MissingApplicationConfig(ComponentInstanceProviderError),
+    #[error("Cannot retrieve application config provider: {0}")]
+    MissingApplicationConfigProvider(ComponentInstanceProviderError),
     #[error("Error creating default application: {0}")]
     DefaultInitializationError(ComponentDefinitionRegistryError),
+    #[error("Cannot retrieve application config: {0}")]
+    CannotRetrieveApplicationConfig(ErrorPtr),
 }
 
 /// Main entrypoint for the application. Bootstraps the application and runs
@@ -76,11 +78,16 @@ impl<CIP: ComponentInstanceProvider + Send + Sync> Application<CIP> {
     async fn install_logger(
         &mut self,
     ) -> Result<Option<dispatcher::DefaultGuard>, ApplicationError> {
-        let config = self
+        let config_provider = self
             .instance_provider
-            .primary_instance_typed::<ApplicationConfig>()
+            .primary_instance_typed::<dyn ApplicationConfigProvider + Send + Sync>()
             .await
-            .map_err(ApplicationError::MissingApplicationConfig)?;
+            .map_err(ApplicationError::MissingApplicationConfigProvider)?;
+
+        let config = config_provider
+            .config()
+            .await
+            .map_err(ApplicationError::CannotRetrieveApplicationConfig)?;
 
         if !config.install_tracing_logger {
             return Ok(None);
@@ -125,10 +132,20 @@ impl<CIP: ComponentInstanceProvider> Application<CIP> {
     }
 
     fn install_logger(&mut self) -> Result<Option<dispatcher::DefaultGuard>, ApplicationError> {
-        let config = self
+        #[cfg(feature = "threadsafe")]
+        type ProviderType = dyn ApplicationConfigProvider + Send + Sync;
+
+        #[cfg(not(feature = "threadsafe"))]
+        type ProviderType = dyn ApplicationConfigProvider;
+
+        let config_provider = self
             .instance_provider
-            .primary_instance_typed::<ApplicationConfig>()
-            .map_err(ApplicationError::MissingApplicationConfig)?;
+            .primary_instance_typed::<ProviderType>()
+            .map_err(ApplicationError::MissingApplicationConfigProvider)?;
+
+        let config = config_provider
+            .config()
+            .map_err(ApplicationError::CannotRetrieveApplicationConfig)?;
 
         if !config.install_tracing_logger {
             return Ok(None);
@@ -155,7 +172,7 @@ pub fn create_default() -> Result<Application<ComponentFactory>, ApplicationErro
 #[cfg(test)]
 mod tests {
     use crate::application::{Application, ApplicationError};
-    use crate::config::ApplicationConfig;
+    use crate::config::{ApplicationConfig, ApplicationConfigProvider};
     use crate::runner::{ApplicationRunnerPtr, BoxFuture, MockApplicationRunner};
     use mockall::mock;
     use mockall::predicate::*;
@@ -179,8 +196,11 @@ mod tests {
         instance: ComponentInstanceAnyPtr,
     ) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr> {
         instance
-            .downcast::<ApplicationConfig>()
-            .map(|p| Box::new(p as ComponentInstancePtr<ApplicationConfig>) as Box<dyn Any>)
+            .downcast::<MockApplicationConfigProvider>()
+            .map(|p| {
+                Box::new(p as ComponentInstancePtr<dyn ApplicationConfigProvider + Send + Sync>)
+                    as Box<dyn Any>
+            })
     }
 
     mock! {
@@ -214,17 +234,34 @@ mod tests {
         }
     }
 
+    const CONFIG: ApplicationConfig = ApplicationConfig {
+        install_tracing_logger: false,
+    };
+
+    #[derive(Default)]
+    struct MockApplicationConfigProvider;
+
+    impl ApplicationConfigProvider for MockApplicationConfigProvider {
+        fn config(&self) -> BoxFuture<'_, Result<&ApplicationConfig, ErrorPtr>> {
+            async { Ok(&CONFIG) }.boxed()
+        }
+    }
+
     fn create_instance_provider() -> MockComponentInstanceProvider {
+        let application_config_provider =
+            ComponentInstancePtr::new(MockApplicationConfigProvider::default());
+
         let mut instance_provider = MockComponentInstanceProvider::new();
         instance_provider
             .expect_primary_instance()
-            .with(eq(TypeId::of::<ApplicationConfig>()))
-            .returning(|_| {
-                async {
+            .with(eq(
+                TypeId::of::<dyn ApplicationConfigProvider + Send + Sync>(),
+            ))
+            .returning(move |_| {
+                let application_config_provider = application_config_provider.clone();
+                async move {
                     Ok((
-                        ComponentInstancePtr::new(ApplicationConfig {
-                            install_tracing_logger: false,
-                        }) as ComponentInstanceAnyPtr,
+                        application_config_provider.clone() as ComponentInstanceAnyPtr,
                         config_cast as CastFunction,
                     ))
                 }

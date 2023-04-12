@@ -34,3 +34,7 @@ tokio = { version = "1.27.0", features = ["rt", "macros"] }
 [[example]]
 name = "00-basic-app"
 required-features = ["async-examples"]
+
+[[example]]
+name = "01-config"
+required-features = ["async-examples"]
