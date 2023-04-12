@@ -149,6 +149,7 @@ pub fn create_default() -> Result<Application<ComponentFactory>, ApplicationErro
 #[cfg(test)]
 mod tests {
     use crate::application::{Application, ApplicationError};
+    use crate::config::ApplicationConfig;
     use crate::runner::{ApplicationRunnerPtr, BoxFuture, MockApplicationRunner};
     use mockall::mock;
     use mockall::predicate::*;
@@ -166,6 +167,14 @@ mod tests {
         instance
             .downcast::<MockApplicationRunner>()
             .map(|p| Box::new(p as ComponentInstancePtr<ApplicationRunnerPtr>) as Box<dyn Any>)
+    }
+
+    fn config_cast(
+        instance: ComponentInstanceAnyPtr,
+    ) -> Result<Box<dyn Any>, ComponentInstanceAnyPtr> {
+        instance
+            .downcast::<ApplicationConfig>()
+            .map(|p| Box::new(p as ComponentInstancePtr<ApplicationConfig>) as Box<dyn Any>)
     }
 
     mock! {
@@ -199,11 +208,31 @@ mod tests {
         }
     }
 
+    fn create_instance_provider() -> MockComponentInstanceProvider {
+        let mut instance_provider = MockComponentInstanceProvider::new();
+        instance_provider
+            .expect_primary_instance()
+            .with(eq(TypeId::of::<ApplicationConfig>()))
+            .returning(|_| {
+                async {
+                    Ok((
+                        ComponentInstancePtr::new(ApplicationConfig {
+                            install_tracing_logger: false,
+                        }) as ComponentInstanceAnyPtr,
+                        config_cast as CastFunction,
+                    ))
+                }
+                .boxed()
+            });
+
+        instance_provider
+    }
+
     #[tokio::test]
     async fn should_return_injector_error() {
         let type_id = TypeId::of::<ApplicationRunnerPtr>();
 
-        let mut instance_provider = MockComponentInstanceProvider::new();
+        let mut instance_provider = create_instance_provider();
         instance_provider
             .expect_instances()
             .with(eq(type_id))
@@ -224,7 +253,7 @@ mod tests {
     async fn should_return_runner_error() {
         let type_id = TypeId::of::<ApplicationRunnerPtr>();
 
-        let mut instance_provider = MockComponentInstanceProvider::new();
+        let mut instance_provider = create_instance_provider();
         instance_provider
             .expect_instances()
             .with(eq(type_id))
