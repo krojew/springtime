@@ -1,6 +1,9 @@
 //! Framework configuration is based on injecting an [ApplicationConfigProvider], which can later
 //! be used to retrieve [ApplicationConfig]. [Application](crate::application::Application) uses
 //! this config to configure itself, but it can also be injected into any other component.
+//!
+//! By default, the config is created with opinionated default values, which can then be overwritten
+//! by environment variables prefixed with `SPRINGTIME_`.
 
 use config::{Config, ConfigError, Environment};
 use serde::Deserialize;
