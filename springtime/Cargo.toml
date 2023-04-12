@@ -38,3 +38,7 @@ required-features = ["async-examples"]
 [[example]]
 name = "01-config"
 required-features = ["async-examples"]
+
+[[example]]
+name = "02-priorities"
+required-features = ["async-examples"]
