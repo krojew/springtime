@@ -3,6 +3,7 @@
 use config::{Config, Environment};
 use serde::Deserialize;
 use springtime_di::component_registry::conditional::unregistered_component;
+#[cfg(feature = "async")]
 use springtime_di::future::{BoxFuture, FutureExt};
 use springtime_di::instance_provider::ErrorPtr;
 use springtime_di::Component;
@@ -18,7 +19,8 @@ fn convert_error<E: Error + Send + Sync + 'static>(error: E) -> ErrorPtr {
 
 #[cfg(not(feature = "threadsafe"))]
 fn convert_error<E: Error + 'static>(error: E) -> ErrorPtr {
-    Box::new(error) as ErrorPtr
+    use std::rc::Rc;
+    Rc::new(error) as ErrorPtr
 }
 
 /// Framework configuration which can be provided by injection.
