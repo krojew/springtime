@@ -4,6 +4,7 @@
 //! *Springtime* allows for declarative approach to creating handlers (called here
 //! [*Controllers*](controller::Controller)) which can take full advantage of dependency injection.
 
+pub mod config;
 pub mod controller;
 
 #[cfg(feature = "derive")]
