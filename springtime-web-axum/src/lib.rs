@@ -3,9 +3,14 @@
 //! `axum` is a web application framework built with a imperative approach - integration with
 //! *Springtime* allows for declarative approach to creating handlers (called here
 //! [*Controllers*](controller::Controller)) which can take full advantage of dependency injection.
+//!
+//! ### Features
+//!
+//! * `derive` - automatically import helper proc macros
 
 pub mod config;
 pub mod controller;
+pub mod server;
 
 #[cfg(feature = "derive")]
 pub use springtime_web_axum_derive::*;
