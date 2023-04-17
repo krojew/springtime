@@ -237,6 +237,7 @@ struct LitArg<T, A> {
     _p: std::marker::PhantomData<T>,
 }
 
+//noinspection DuplicatedCode
 impl<T: Parse, A: Parse> Parse for LitArg<T, A> {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let _ = input.parse::<T>()?;

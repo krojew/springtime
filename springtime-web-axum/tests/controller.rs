@@ -5,7 +5,7 @@ use springtime_web_axum::controller;
 #[derive(Component)]
 struct TestController;
 
-#[controller]
+#[controller(path = "/test")]
 impl TestController {}
 
 #[tokio::test]

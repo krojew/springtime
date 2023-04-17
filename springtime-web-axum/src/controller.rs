@@ -7,4 +7,10 @@ use springtime_di::injectable;
 /// structs. Such approach allows for injecting other components via dependency injection, and
 /// therefore, creating advanced applications with proper architecture.
 #[injectable]
-pub trait Controller {}
+pub trait Controller {
+    /// Prefix for all paths contained in the controller, e.g. controller path of `/abc` and handler
+    /// path of `/xyz` results in final path of `/abc/xyz`.
+    fn path(&self) -> Option<String> {
+        None
+    }
+}
