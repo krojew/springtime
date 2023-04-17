@@ -1,0 +1,16 @@
+[package]
+name = "springtime-web-axum-derive"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+description = "Derive support for springtime-web-axum crate."
+documentation = "https://docs.rs/springtime-web-axum"
+repository.workspace = true
+license.workspace = true
+keywords = ["web", "http", "spring", "derive", "axum"]
+readme = "README.md"
+
+[lib]
+proc-macro = true
+
+[dependencies]
