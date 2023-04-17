@@ -61,7 +61,7 @@ impl From<OptionalWebConfig> for WebConfig {
 impl WebConfig {
     fn init_from_config() -> Result<Self, ErrorPtr> {
         Config::builder()
-            .add_source(File::with_name(CONFIG_FILE))
+            .add_source(File::with_name(CONFIG_FILE).required(false))
             .build()
             .and_then(|config| config.try_deserialize::<OptionalWebConfigWrapper>())
             .map(|config| config.web.map(|config| config.into()).unwrap_or_default())

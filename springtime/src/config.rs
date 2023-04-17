@@ -61,7 +61,7 @@ impl From<OptionalApplicationConfig> for ApplicationConfig {
 impl ApplicationConfig {
     fn init_from_environment() -> Result<Self, ConfigError> {
         Config::builder()
-            .add_source(File::with_name(CONFIG_FILE))
+            .add_source(File::with_name(CONFIG_FILE).required(false))
             .add_source(Environment::with_prefix(CONFIG_ENV_PREFIX))
             .build()
             .and_then(|config| config.try_deserialize::<OptionalApplicationConfig>())
