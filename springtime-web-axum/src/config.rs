@@ -7,13 +7,12 @@
 use config::{Config, File};
 use fxhash::FxHashMap;
 use serde::Deserialize;
+use springtime::config::CONFIG_FILE;
 use springtime_di::component_registry::conditional::unregistered_component;
 use springtime_di::future::{BoxFuture, FutureExt};
 use springtime_di::instance_provider::ErrorPtr;
 use springtime_di::{component_alias, injectable, Component};
 use std::sync::Arc;
-
-const CONFIG_FILE: &str = "springtime.json";
 
 /// Server configuration.
 #[non_exhaustive]

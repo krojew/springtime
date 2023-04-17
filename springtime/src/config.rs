@@ -3,9 +3,9 @@
 //! this config to configure itself, but it can also be injected into any other component.
 //!
 //! By default, the config is created with opinionated default values, which can then be overwritten
-//! by environment variables prefixed with `SPRINGTIME_`.
+//! by environment variables prefixed with `SPRINGTIME_` or `springtime.json` file.
 
-use config::{Config, ConfigError, Environment};
+use config::{Config, ConfigError, Environment, File};
 use serde::Deserialize;
 use springtime_di::component_registry::conditional::unregistered_component;
 #[cfg(feature = "async")]
@@ -15,6 +15,9 @@ use springtime_di::{component_alias, injectable, Component};
 use std::error::Error;
 
 const CONFIG_ENV_PREFIX: &str = "SPRINGTIME";
+
+/// Name of the default config file.
+pub const CONFIG_FILE: &str = "springtime.json";
 
 #[cfg(feature = "threadsafe")]
 fn convert_error<E: Error + Send + Sync + 'static>(error: E) -> ErrorPtr {
@@ -58,6 +61,7 @@ impl From<OptionalApplicationConfig> for ApplicationConfig {
 impl ApplicationConfig {
     fn init_from_environment() -> Result<Self, ConfigError> {
         Config::builder()
+            .add_source(File::with_name(CONFIG_FILE))
             .add_source(Environment::with_prefix(CONFIG_ENV_PREFIX))
             .build()
             .and_then(|config| config.try_deserialize::<OptionalApplicationConfig>())
