@@ -1,6 +1,6 @@
 use portpicker::pick_unused_port;
 use springtime::application;
-use springtime_di::future::{BoxFuture, FutureExt};
+use springtime::runner::{BoxFuture, FutureExt};
 use springtime_di::instance_provider::ErrorPtr;
 use springtime_di::{component_alias, Component};
 use springtime_web_axum::config::{ServerConfig, WebConfig, WebConfigProvider};
