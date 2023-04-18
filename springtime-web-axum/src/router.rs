@@ -64,4 +64,23 @@ mod tests {
         };
         assert!(bootstrap.bootstrap_router("1").is_ok());
     }
+
+    #[test]
+    fn should_not_configure_router_with_filtering() {
+        let mut controller = MockController::new();
+        controller
+            .expect_configure_router()
+            .times(0)
+            .returning(|router| router);
+        controller.expect_server_names().times(1).return_const(
+            ["1".to_string(), "2".to_string()]
+                .into_iter()
+                .collect::<FxHashSet<_>>(),
+        );
+
+        let bootstrap = ControllerRouterBootstrap {
+            controllers: vec![ComponentInstancePtr::new(controller)],
+        };
+        assert!(bootstrap.bootstrap_router("3").is_ok());
+    }
 }
