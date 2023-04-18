@@ -7,7 +7,8 @@ use springtime_di::future::{BoxFuture, FutureExt};
 use springtime_di::instance_provider::{ComponentInstancePtr, ErrorPtr};
 use springtime_di::{component_alias, Component};
 
-// application config is provided by an ApplicationConfigProvider
+// application config is provided by an ApplicationConfigProvider, which by default, uses
+// environment variables and a configuration file (see module documentation)
 // to provide your own, register a component implementing this trait, and it should take precedence
 // over the default one
 #[derive(Component)]
