@@ -1,10 +1,12 @@
 //! Functionality related to defining [Controller]s.
 
-use axum::Router;
 use fxhash::FxHashSet;
 #[cfg(test)]
 use mockall::automock;
 use springtime_di::injectable;
+
+pub type ServerNameSet = FxHashSet<String>;
+pub type Router = axum::Router;
 
 /// Main trait for [Components](springtime_di::component::Component) used as controllers -
 /// collections of web [handlers](axum::handler::Handler) being functions contained in typical
@@ -20,7 +22,7 @@ pub trait Controller {
     }
 
     /// Optional list of server names for which given controller should be registered.
-    fn server_names(&self) -> Option<FxHashSet<String>> {
+    fn server_names(&self) -> Option<ServerNameSet> {
         None
     }
 

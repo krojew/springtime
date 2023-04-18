@@ -345,6 +345,7 @@ fn extract_component_attributes(attributes: &[Attribute]) -> Result<Option<Compo
         .transpose()
 }
 
+//noinspection DuplicatedCode
 fn generate_names(attribute_names: Option<ExprArray>, ident: &Ident) -> Vec<String> {
     attribute_names
         .map(|names| {

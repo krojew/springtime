@@ -1,12 +1,14 @@
 use syn::parse::{Parse, ParseStream};
-use syn::{Error, LitStr, Token};
+use syn::{Error, ExprArray, LitStr, Token};
 
 #[derive(Default)]
 pub struct ControllerAttributes {
     pub path: Option<LitStr>,
+    pub server_names: Option<ExprArray>,
 }
 
 impl Parse for ControllerAttributes {
+    //noinspection DuplicatedCode
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut result = Self::default();
         while !input.is_empty() {
@@ -17,6 +19,20 @@ impl Parse for ControllerAttributes {
                 }
 
                 result.path = Some(input.parse::<LitArg<kw::path, LitStr>>()?.value);
+            } else if lookahead.peek(kw::server_names) {
+                if result.server_names.is_some() {
+                    return Err(Error::new(
+                        input.span(),
+                        "Server names are already defined!",
+                    ));
+                }
+
+                result.server_names =
+                    Some(input.parse::<LitArg<kw::server_names, ExprArray>>()?.value);
+            } else if lookahead.peek(Token![,]) {
+                let _ = input.parse::<Token![,]>()?;
+            } else {
+                return Err(lookahead.error());
             }
         }
 
@@ -46,4 +62,5 @@ mod kw {
     use syn::custom_keyword;
 
     custom_keyword!(path);
+    custom_keyword!(server_names);
 }

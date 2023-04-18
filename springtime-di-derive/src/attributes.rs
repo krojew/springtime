@@ -192,6 +192,7 @@ pub struct ComponentAliasAttributes {
 }
 
 impl Parse for ComponentAliasAttributes {
+    //noinspection DuplicatedCode
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut result = Self::default();
         while !input.is_empty() {

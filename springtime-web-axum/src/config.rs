@@ -14,6 +14,9 @@ use springtime_di::instance_provider::ErrorPtr;
 use springtime_di::{component_alias, injectable, Component};
 use std::sync::Arc;
 
+/// Name of the default server present in the default [WebConfig].
+pub const DEFAULT_SERVER_NAME: &str = "default";
+
 /// Server configuration.
 #[non_exhaustive]
 #[derive(Clone, Debug, Deserialize)]
@@ -35,14 +38,15 @@ impl Default for ServerConfig {
 #[derive(Clone, Debug)]
 pub struct WebConfig {
     /// Map from server name to their config. Typically, only one server with one address will be
-    /// present, but in case multiple servers are desired, they should be specified here.
+    /// present (see: [DEFAULT_SERVER_NAME], but in case multiple servers are desired, they should
+    /// be specified here.
     pub servers: FxHashMap<String, ServerConfig>,
 }
 
 impl Default for WebConfig {
     fn default() -> Self {
         Self {
-            servers: [("default".to_string(), Default::default())]
+            servers: [(DEFAULT_SERVER_NAME.to_string(), Default::default())]
                 .into_iter()
                 .collect(),
         }

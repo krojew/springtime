@@ -9,7 +9,7 @@ use springtime_web_axum::controller;
 #[derive(Component)]
 struct TestController;
 
-#[controller(path = "/test")]
+#[controller(path = "/test", server_names = ["default", "test"])]
 impl TestController {}
 
 #[derive(Component)]
