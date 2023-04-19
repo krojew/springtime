@@ -5,10 +5,10 @@ use crate::runner::ApplicationRunnerPtr;
 use derive_more::Constructor;
 #[cfg(feature = "async")]
 use futures::future::try_join_all;
-#[cfg(feature = "async")]
-use itertools::Itertools;
 use springtime_di::component_registry::ComponentDefinitionRegistryError;
 use springtime_di::factory::{ComponentFactory, ComponentFactoryBuilder};
+#[cfg(feature = "async")]
+use springtime_di::instance_provider::ComponentInstancePtr;
 use springtime_di::instance_provider::{
     ComponentInstanceProvider, ComponentInstanceProviderError, ErrorPtr,
     TypedComponentInstanceProvider,
@@ -61,7 +61,7 @@ impl<CIP: ComponentInstanceProvider + Send + Sync> Application<CIP> {
 
         info!("Searching for application runners...");
 
-        let runners = self
+        let mut runners = self
             .instance_provider
             .instances_typed::<ApplicationRunnerPtr>()
             .await
@@ -70,17 +70,13 @@ impl<CIP: ComponentInstanceProvider + Send + Sync> Application<CIP> {
                 ApplicationError::RunnerInjectionError(error)
             })?;
 
-        let runners = runners.iter().group_by(|runner| runner.priority());
-
-        let groups = runners
-            .into_iter()
-            .sorted_by_key(|(priority, _)| -priority)
-            .map(|(_, runner)| runner);
+        runners.sort_unstable_by_key(|runner| -runner.priority());
 
         info!("Running application runners...");
 
-        for runners in groups {
-            try_join_all(runners.into_iter().map(|runner| runner.run()))
+        let mut current_runner_index = 0;
+        while current_runner_index < runners.len() {
+            current_runner_index += run_grouped_by_priority(&runners[current_runner_index..])
                 .await
                 .map_err(|error| {
                     error!(%error, "Error running application runner!");
@@ -183,6 +179,29 @@ pub fn create_default() -> Result<Application<ComponentFactory>, ApplicationErro
         .build();
 
     Ok(Application::new(component_factory))
+}
+
+// this could be replaced by group_by() from itertools, but it doesn't impl Send
+#[cfg(feature = "async")]
+async fn run_grouped_by_priority(
+    runners: &[ComponentInstancePtr<ApplicationRunnerPtr>],
+) -> Result<usize, ErrorPtr> {
+    // note: assuming runners are sorted by priority
+    let current_priority = runners[0].priority();
+    let first_new_priority_index = runners
+        .iter()
+        .enumerate()
+        .find(|(_, entry)| entry.priority() != current_priority)
+        .map(|(index, _)| index)
+        .unwrap_or(runners.len());
+
+    try_join_all(
+        runners[..first_new_priority_index]
+            .iter()
+            .map(|runner| runner.run()),
+    )
+    .await
+    .map(move |_| first_new_priority_index)
 }
 
 #[cfg(test)]
