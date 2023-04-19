@@ -3,6 +3,10 @@
 use crate::config::ApplicationConfigProvider;
 use crate::runner::ApplicationRunnerPtr;
 use derive_more::Constructor;
+#[cfg(feature = "async")]
+use futures::future::try_join_all;
+#[cfg(feature = "async")]
+use itertools::Itertools;
 use springtime_di::component_registry::ComponentDefinitionRegistryError;
 use springtime_di::factory::{ComponentFactory, ComponentFactoryBuilder};
 use springtime_di::instance_provider::{
@@ -57,7 +61,7 @@ impl<CIP: ComponentInstanceProvider + Send + Sync> Application<CIP> {
 
         info!("Searching for application runners...");
 
-        let mut runners = self
+        let runners = self
             .instance_provider
             .instances_typed::<ApplicationRunnerPtr>()
             .await
@@ -66,15 +70,22 @@ impl<CIP: ComponentInstanceProvider + Send + Sync> Application<CIP> {
                 ApplicationError::RunnerInjectionError(error)
             })?;
 
-        runners.sort_unstable_by_key(|runner| -runner.priority());
+        let runners = runners.iter().group_by(|runner| runner.priority());
+
+        let groups = runners
+            .into_iter()
+            .sorted_by_key(|(priority, _)| -priority)
+            .map(|(_, runner)| runner);
 
         info!("Running application runners...");
 
-        for runner in &runners {
-            runner.run().await.map_err(|error| {
-                error!(%error, "Error running application runner!");
-                ApplicationError::RunnerError(error)
-            })?;
+        for runners in groups {
+            try_join_all(runners.into_iter().map(|runner| runner.run()))
+                .await
+                .map_err(|error| {
+                    error!(%error, "Error running application runner!");
+                    ApplicationError::RunnerError(error)
+                })?;
         }
 
         Ok(())
