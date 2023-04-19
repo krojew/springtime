@@ -327,6 +327,7 @@ mod tests {
                     }
                     .boxed()
                 });
+                runner.expect_priority().return_const(0);
 
                 async {
                     Ok(vec![(
