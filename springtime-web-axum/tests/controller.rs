@@ -39,7 +39,7 @@ impl TestController {
 
     #[router_post_configure]
     fn post_configure_router(&self, router: Router) -> Result<Router, ErrorPtr> {
-        router
+        Ok(router)
     }
 }
 
