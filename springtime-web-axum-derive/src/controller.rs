@@ -6,13 +6,13 @@ use syn::spanned::Spanned;
 use syn::{Attribute, Error, Expr, ExprLit, FnArg, Ident, ImplItem, Item, Lit, LitStr, Result};
 
 macro_rules! impl_handlers {
-    ($ident:expr, $path:ident, $inner_code:expr, $($m:tt)+) => {
+    ($ident:expr, $path:expr, $inner_code:expr, $($m:tt)+) => {
         $(if $ident == stringify!($m) {
             let inner_code = $inner_code;
             let path = $path;
-            Some(quote!(let router = router.route(#path, $m(#inner_code));))
+            quote!(let router = router.route(#path, $m(#inner_code));)
         } else)+ {
-            None
+            quote!()
         }
     }
 }
@@ -21,8 +21,19 @@ fn generate_method_configuration(
     attr: &Attribute,
     inner_code: &TokenStream,
 ) -> Result<Option<TokenStream>> {
-    let path = attr.parse_args::<LitStr>()?.value();
-    Ok(attr.meta.path().get_ident().and_then(|ident| impl_handlers!(ident, path, inner_code, delete get head options patch post put trace)))
+    attr.meta
+        .path()
+        .get_ident()
+        .map(|ident| {
+            if ident == "fallback" {
+                return Ok(quote!(let router = router.fallback(#inner_code);));
+            }
+
+            attr.parse_args::<LitStr>().map(|path| {
+            impl_handlers!(ident, path, inner_code, delete get head options patch post put trace)
+        })
+        })
+        .transpose()
 }
 
 fn extract_router_configuration(items: &mut Vec<ImplItem>) -> Result<TokenStream> {

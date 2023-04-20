@@ -25,6 +25,11 @@ impl TestController {
     async fn post_something(&self) -> &'static str {
         "Posted!"
     }
+
+    #[fallback]
+    async fn fallback(&self) -> &'static str {
+        "fallback"
+    }
 }
 
 #[derive(Component)]
@@ -89,6 +94,14 @@ async fn should_register_controller() {
         .await
         .unwrap();
     assert_eq!(body, "Hello 42!");
+
+    let body = reqwest::get(format!("http://localhost:{}/test/invalid/route", *PORT))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert_eq!(body, "fallback");
 
     START_BARRIER.wait().await;
     SHUTDOWN_SIGNAL
