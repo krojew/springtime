@@ -6,6 +6,7 @@ use axum::Router;
 use springtime_di::component_registry::conditional::unregistered_component;
 use springtime_di::instance_provider::{ComponentInstancePtr, ErrorPtr};
 use springtime_di::{component_alias, injectable, Component};
+use std::sync::Arc;
 
 /// Trait for creating a [Router], usually based on injected
 /// [Controller](crate::controller::Controller)s.
@@ -24,8 +25,7 @@ struct ControllerRouterBootstrap {
 #[component_alias]
 impl RouterBootstrap for ControllerRouterBootstrap {
     fn bootstrap_router(&self, server_name: &str) -> Result<Router, ErrorPtr> {
-        Ok(self
-            .controllers
+        self.controllers
             .iter()
             .filter(|controller| {
                 controller
@@ -33,9 +33,13 @@ impl RouterBootstrap for ControllerRouterBootstrap {
                     .map(|server_names| server_names.contains(server_name))
                     .unwrap_or(true)
             })
-            .fold(Router::new(), |router, controller| {
-                controller.configure_router(router)
-            }))
+            .try_fold(Router::new(), |router, controller| {
+                let path = controller.path().unwrap_or_else(|| "/".to_string());
+                controller
+                    .configure_router(controller.clone())
+                    .map_err(|error| Arc::new(error) as ErrorPtr)
+                    .map(|inner_router| router.nest(&path, inner_router))
+            })
     }
 }
 
@@ -43,6 +47,7 @@ impl RouterBootstrap for ControllerRouterBootstrap {
 mod tests {
     use crate::controller::MockController;
     use crate::router::{ControllerRouterBootstrap, RouterBootstrap};
+    use axum::Router;
     use fxhash::FxHashSet;
     use springtime_di::instance_provider::ComponentInstancePtr;
 
@@ -52,12 +57,13 @@ mod tests {
         controller
             .expect_configure_router()
             .times(1)
-            .returning(|router| router);
+            .return_const(Ok(Router::new()));
         controller.expect_server_names().times(1).return_const(
             ["1".to_string(), "2".to_string()]
                 .into_iter()
                 .collect::<FxHashSet<_>>(),
         );
+        controller.expect_path().return_const(None);
 
         let bootstrap = ControllerRouterBootstrap {
             controllers: vec![ComponentInstancePtr::new(controller)],
@@ -71,7 +77,7 @@ mod tests {
         controller
             .expect_configure_router()
             .times(0)
-            .returning(|router| router);
+            .return_const(Ok(Router::new()));
         controller.expect_server_names().times(1).return_const(
             ["1".to_string(), "2".to_string()]
                 .into_iter()

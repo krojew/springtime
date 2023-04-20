@@ -1,12 +1,94 @@
 use crate::attributes::ControllerAttributes;
-use proc_macro2::TokenStream;
+use itertools::{Either, Itertools};
+use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::spanned::Spanned;
-use syn::{Error, Expr, ExprLit, Item, Lit, Result};
+use syn::{Attribute, Error, Expr, ExprLit, FnArg, Ident, ImplItem, Item, Lit, LitStr, Result};
+
+macro_rules! impl_handlers {
+    ($ident:expr, $path:ident, $inner_code:expr, $($m:tt)+) => {
+        $(if $ident == stringify!($m) {
+            let inner_code = $inner_code;
+            let path = $path;
+            Some(quote!(let router = router.route(#path, $m(#inner_code));))
+        } else)+ {
+            None
+        }
+    }
+}
+
+fn generate_method_configuration(
+    attr: &Attribute,
+    inner_code: &TokenStream,
+) -> Result<Option<TokenStream>> {
+    let path = attr.parse_args::<LitStr>()?.value();
+    Ok(attr.meta.path().get_ident().and_then(|ident| impl_handlers!(ident, path, inner_code, delete get head options patch post put trace)))
+}
+
+fn extract_router_configuration(items: &mut Vec<ImplItem>) -> Result<TokenStream> {
+    let mut method_configs = vec![];
+
+    for item in items {
+        if let ImplItem::Fn(item) = item {
+            let name = &item.sig.ident;
+            let args = item
+                .sig
+                .inputs
+                .iter()
+                .filter(|input| !matches!(input, FnArg::Receiver(_)))
+                .enumerate()
+                .map(|(index, _)| Ident::new(&format!("a{index}"), Span::call_site()))
+                .collect_vec();
+
+            let function_call = quote! {
+                {
+                    let self_instance_ptr = self_instance_ptr.clone();
+                    move |#(#args),*| async move { self_instance_ptr.#name(#(#args),*).await }
+                }
+            };
+
+            let (normal_attrs, controller_attrs): (Vec<_>, Vec<_>) =
+                item.attrs.iter().partition_map(|attr| {
+                    match generate_method_configuration(attr, &function_call) {
+                        Ok(Some(controller_attr)) => Either::Right(Ok(controller_attr)),
+                        Ok(None) => Either::Left(attr.clone()),
+                        Err(error) => Either::Right(Err(error)),
+                    }
+                });
+
+            if let Some(error) = controller_attrs
+                .iter()
+                .find_map(|attr| {
+                    if let Err(error) = attr {
+                        Some(error)
+                    } else {
+                        None
+                    }
+                })
+                .cloned()
+            {
+                return Err(error);
+            }
+
+            item.attrs = normal_attrs;
+            method_configs.extend(controller_attrs.into_iter().filter_map(|attr| {
+                if let Ok(tokens) = attr {
+                    Some(tokens)
+                } else {
+                    None
+                }
+            }));
+        }
+    }
+
+    Ok(quote! {
+        #(#method_configs)*
+    })
+}
 
 //noinspection DuplicatedCode
-pub fn generate_controller(item: &Item, attributes: &ControllerAttributes) -> Result<TokenStream> {
-    if let Item::Impl(item) = item {
+pub fn generate_controller(item: Item, attributes: &ControllerAttributes) -> Result<TokenStream> {
+    if let Item::Impl(mut item) = item {
         let ty = &item.self_ty;
         let path = if let Some(path) = &attributes.path {
             quote! {
@@ -40,6 +122,7 @@ pub fn generate_controller(item: &Item, attributes: &ControllerAttributes) -> Re
                 }
             }
         }).unwrap_or_else(|| quote!());
+        let router_config = extract_router_configuration(&mut item.items)?;
 
         Ok(quote! {
             #[automatically_derived]
@@ -48,10 +131,25 @@ pub fn generate_controller(item: &Item, attributes: &ControllerAttributes) -> Re
                 #path
                 #server_names
 
-                fn configure_router(&self, router: springtime_web_axum::controller::Router) -> springtime_web_axum::controller::Router {
-                    router
+                fn configure_router(
+                    &self,
+                    self_instance_ptr: springtime_di::instance_provider::ComponentInstancePtr<dyn springtime_web_axum::controller::Controller + Send + Sync>,
+                ) -> Result<springtime_web_axum::axum::Router, springtime_web_axum::controller::RouterError> {
+                    use springtime_web_axum::controller::RouterError;
+                    use springtime_web_axum::axum::routing::*;
+
+                    let router = springtime_web_axum::axum::Router::new();
+                    let self_instance_ptr = self_instance_ptr
+                        .downcast_arc::<#ty>()
+                        .map_err(|error| RouterError::RouterConfigurationError(format!("Invalid controller instance: {}", error)))?;
+
+                    #router_config
+
+                    Ok(router)
                 }
             }
+
+            #item
         })
     } else {
         Err(Error::new(

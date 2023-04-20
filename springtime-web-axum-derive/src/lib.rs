@@ -11,10 +11,9 @@ use syn::{parse_macro_input, Error, Item};
 pub fn controller(args: TokenStream, input: TokenStream) -> TokenStream {
     let args = parse_macro_input!(args as ControllerAttributes);
     let item = parse_macro_input!(input as Item);
-    let controller = generate_controller(&item, &args).unwrap_or_else(Error::into_compile_error);
+    let controller = generate_controller(item, &args).unwrap_or_else(Error::into_compile_error);
 
     (quote! {
-        #item
         #controller
     })
     .into()

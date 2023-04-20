@@ -17,6 +17,7 @@ derive = ["springtime-web-axum-derive"]
 [dependencies]
 axum = "0.6.15"
 config = "0.13.3"
+downcast = "0.11.0"
 futures = "0.3.28"
 fxhash = "0.2.1"
 hyper = "0.14.26"

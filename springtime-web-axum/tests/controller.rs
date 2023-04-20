@@ -4,6 +4,7 @@ use springtime::application;
 use springtime::runner::{BoxFuture, FutureExt};
 use springtime_di::instance_provider::ErrorPtr;
 use springtime_di::{component_alias, Component};
+use springtime_web_axum::axum::extract::Path;
 use springtime_web_axum::config::{ServerConfig, WebConfig, WebConfigProvider};
 use springtime_web_axum::controller;
 use springtime_web_axum::server::{ShutdownSignalSender, ShutdownSignalSource};
@@ -14,7 +15,17 @@ use tokio::sync::Barrier;
 struct TestController;
 
 #[controller(path = "/test", server_names = ["default", "test"])]
-impl TestController {}
+impl TestController {
+    #[get("/:user_id")]
+    async fn hello_world(&self, Path(_user_id): Path<u32>) -> &'static str {
+        "Hello world!"
+    }
+
+    #[post("/")]
+    async fn post_something(&self) -> &'static str {
+        "Posted!"
+    }
+}
 
 #[derive(Component)]
 #[component(constructor = "TestWebConfigProvider::new")]

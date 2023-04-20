@@ -13,5 +13,7 @@ pub mod controller;
 pub mod router;
 pub mod server;
 
+pub use axum;
+
 #[cfg(feature = "derive")]
 pub use springtime_web_axum_derive::*;

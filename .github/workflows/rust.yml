@@ -22,8 +22,8 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all-targets -p springtime-di
-      - name: Run springtime tests
+          args: --all-targets -p springtime-di -p springtime-web-axum
+      - name: Run remaining springtime tests
         uses: actions-rs/cargo@v1
         with:
           command: test

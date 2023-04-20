@@ -1,12 +1,22 @@
 //! Functionality related to defining [Controller]s.
 
+use axum::Router;
+use downcast::{downcast_sync, AnySync};
 use fxhash::FxHashSet;
 #[cfg(test)]
 use mockall::automock;
 use springtime_di::injectable;
+use springtime_di::instance_provider::ComponentInstancePtr;
+use thiserror::Error;
 
 pub type ServerNameSet = FxHashSet<String>;
-pub type Router = axum::Router;
+
+/// Helper error enum for router configuration errors.
+#[derive(Clone, PartialEq, Error, Debug)]
+pub enum RouterError {
+    #[error("Generic error configuring router: {0}")]
+    RouterConfigurationError(String),
+}
 
 /// Main trait for [Components](springtime_di::component::Component) used as controllers -
 /// collections of web [handlers](axum::handler::Handler) being functions contained in typical
@@ -14,7 +24,7 @@ pub type Router = axum::Router;
 /// therefore, creating advanced applications with proper architecture.
 #[injectable]
 #[cfg_attr(test, automock)]
-pub trait Controller {
+pub trait Controller: AnySync {
     /// Prefix for all paths contained in the controller, e.g. controller path of `/abc` and handler
     /// path of `/xyz` results in final path of `/abc/xyz`.
     fn path(&self) -> Option<String> {
@@ -26,6 +36,12 @@ pub trait Controller {
         None
     }
 
-    /// Configures given [Router] to handle incoming requests.
-    fn configure_router(&self, router: Router) -> Router;
+    /// Creates a [Router] to handle incoming requests. Passed instance ptr points to the controller
+    /// component being processed (`Self`).
+    fn configure_router(
+        &self,
+        self_instance_ptr: ComponentInstancePtr<dyn Controller + Send + Sync>,
+    ) -> Result<Router, RouterError>;
 }
+
+downcast_sync!(dyn Controller + Send + Sync);
