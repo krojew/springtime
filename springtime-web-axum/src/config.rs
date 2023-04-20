@@ -8,7 +8,7 @@ use config::{Config, File};
 use fxhash::FxHashMap;
 use serde::Deserialize;
 use springtime::config::CONFIG_FILE;
-use springtime::runner::{BoxFuture, FutureExt};
+use springtime::future::{BoxFuture, FutureExt};
 use springtime_di::component_registry::conditional::unregistered_component;
 use springtime_di::instance_provider::ErrorPtr;
 use springtime_di::{component_alias, injectable, Component};

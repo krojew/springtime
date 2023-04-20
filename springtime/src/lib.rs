@@ -54,4 +54,6 @@
 
 pub mod application;
 pub mod config;
+#[cfg(feature = "async")]
+pub mod future;
 pub mod runner;

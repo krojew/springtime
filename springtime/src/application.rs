@@ -208,7 +208,8 @@ async fn run_grouped_by_priority(
 mod tests {
     use crate::application::{Application, ApplicationError};
     use crate::config::{ApplicationConfig, ApplicationConfigProvider};
-    use crate::runner::{ApplicationRunnerPtr, BoxFuture, MockApplicationRunner};
+    use crate::future::{BoxFuture, MockApplicationRunner};
+    use crate::runner::{ApplicationRunnerPtr, MockApplicationRunner};
     use mockall::mock;
     use mockall::predicate::*;
     use springtime_di::future::FutureExt;

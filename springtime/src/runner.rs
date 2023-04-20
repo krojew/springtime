@@ -1,9 +1,9 @@
 //! Runners executing actual application logic.
 
+#[cfg(feature = "async")]
+use crate::future::BoxFuture;
 #[cfg(test)]
 use mockall::automock;
-#[cfg(feature = "async")]
-pub use springtime_di::future::{BoxFuture, FutureExt};
 use springtime_di::injectable;
 pub use springtime_di::instance_provider::ErrorPtr;
 
