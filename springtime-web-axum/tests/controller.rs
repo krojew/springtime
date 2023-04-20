@@ -82,7 +82,7 @@ async fn should_register_controller() {
         application.run().await.unwrap();
     });
 
-    let body = reqwest::get(format!("http://127.0.0.1:{}/test/42", *PORT))
+    let body = reqwest::get(format!("http://localhost:{}/test/42", *PORT))
         .await
         .unwrap()
         .text()
