@@ -7,7 +7,7 @@ use springtime_di::{component_alias, Component};
 use springtime_web_axum::config::{
     ServerConfig, WebConfig, WebConfigProvider, DEFAULT_SERVER_NAME,
 };
-use springtime_web_axum_derive::controller;
+use springtime_web_axum::controller;
 
 // web is provided by a WebConfigProvider, which by default, uses a configuration file (see module
 // documentation)

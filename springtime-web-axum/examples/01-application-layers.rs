@@ -4,7 +4,7 @@ use axum::extract::Path;
 use springtime::application;
 use springtime_di::instance_provider::ComponentInstancePtr;
 use springtime_di::{component_alias, injectable, Component};
-use springtime_web_axum_derive::controller;
+use springtime_web_axum::controller;
 
 // injectable example trait representing a domain service
 #[injectable]

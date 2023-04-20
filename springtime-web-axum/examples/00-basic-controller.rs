@@ -1,7 +1,7 @@
 use axum::extract::Path;
 use springtime::application;
 use springtime_di::Component;
-use springtime_web_axum_derive::controller;
+use springtime_web_axum::controller;
 
 // create a struct which will serve as our Controller - this implies it needs to be a Component for
 // the dependency injection to work

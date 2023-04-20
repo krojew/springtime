@@ -8,7 +8,6 @@ use mockall::automock;
 use springtime_di::component_registry::conditional::unregistered_component;
 use springtime_di::instance_provider::{ComponentInstancePtr, ErrorPtr};
 use springtime_di::{component_alias, injectable, Component};
-use std::sync::Arc;
 
 /// Trait for configuring [Router] created by [RouterBootstrap]. Multiple such components can be
 /// present and each one will be called with the current router instance.
@@ -47,9 +46,10 @@ impl RouterBootstrap for ControllerRouterBootstrap {
             })
             .try_fold(Router::new(), |router, controller| {
                 let path = controller.path().unwrap_or_else(|| "/".to_string());
+                let inner_router = controller.create_router()?;
                 controller
-                    .configure_router(controller.clone())
-                    .map_err(|error| Arc::new(error) as ErrorPtr)
+                    .configure_router(inner_router, controller.clone())
+                    .and_then(|inner_router| controller.post_configure_router(inner_router))
                     .map(|inner_router| router.nest(&path, inner_router))
             })
             .and_then(|router| {
@@ -81,6 +81,12 @@ mod tests {
                 .collect::<FxHashSet<_>>(),
         );
         controller.expect_path().return_const(None);
+        controller
+            .expect_create_router()
+            .return_const(Ok(Router::new()));
+        controller
+            .expect_post_configure_router()
+            .returning(|router| Ok(router));
 
         let bootstrap = ControllerRouterBootstrap {
             controllers: vec![ComponentInstancePtr::new(controller)],

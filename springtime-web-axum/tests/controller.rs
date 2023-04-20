@@ -1,3 +1,4 @@
+use axum::Router;
 use once_cell::sync::Lazy;
 use portpicker::{pick_unused_port, Port};
 use springtime::application;
@@ -29,6 +30,16 @@ impl TestController {
     #[fallback]
     async fn fallback(&self) -> &'static str {
         "fallback"
+    }
+
+    #[router_source]
+    fn create_router(&self) -> Result<Router, ErrorPtr> {
+        Ok(Router::new())
+    }
+
+    #[router_post_configure]
+    fn post_configure_router(&self, router: Router) -> Result<Router, ErrorPtr> {
+        router
     }
 }
 

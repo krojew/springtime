@@ -2,7 +2,7 @@
 
 use springtime::application;
 use springtime_di::Component;
-use springtime_web_axum_derive::controller;
+use springtime_web_axum::controller;
 
 #[derive(Component)]
 struct ExampleController;

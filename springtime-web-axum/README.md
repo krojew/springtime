@@ -22,6 +22,7 @@ application development and loose coupling between components.
 * Hierarchical router paths
 * Multiple server instances support with controller filtering
 * Built-in external file and programmable configuration
+* Advanced router configuration
 * All the features provided by `axum`
 
 ## Basic usage
@@ -41,7 +42,7 @@ use axum::extract::Path;
 use springtime::application;
 use springtime_di::instance_provider::ComponentInstancePtr;
 use springtime_di::{injectable, Component, component_alias};
-use springtime_web_axum_derive::controller;
+use springtime_web_axum::controller;
 
 // injectable example trait representing a domain service
 #[injectable]

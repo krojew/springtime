@@ -7,17 +7,9 @@ use fxhash::FxHashSet;
 #[cfg(test)]
 use mockall::automock;
 use springtime_di::injectable;
-use springtime_di::instance_provider::ComponentInstancePtr;
-use thiserror::Error;
+use springtime_di::instance_provider::{ComponentInstancePtr, ErrorPtr};
 
 pub type ServerNameSet = FxHashSet<String>;
-
-/// Helper error enum for router configuration errors.
-#[derive(Clone, PartialEq, Error, Debug)]
-pub enum RouterError {
-    #[error("Generic error configuring router: {0}")]
-    RouterConfigurationError(String),
-}
 
 /// Main trait for [Components](springtime_di::component::Component) used as controllers -
 /// collections of web [handlers](axum::handler::Handler) being functions contained in typical
@@ -37,12 +29,19 @@ pub trait Controller: AnySync {
         None
     }
 
-    /// Creates a [Router] to handle incoming requests. Passed instance ptr points to the controller
-    /// component being processed (`Self`).
+    /// Configures a [Router] to handle incoming requests. Passed instance ptr points to the
+    /// controller component being processed (`Self`).
     fn configure_router(
         &self,
+        router: Router,
         self_instance_ptr: ComponentInstancePtr<dyn Controller + Send + Sync>,
-    ) -> Result<Router, RouterError>;
+    ) -> Result<Router, ErrorPtr>;
+
+    /// Creates a [Router] which is then passed to `configure_router`.
+    fn create_router(&self) -> Result<Router, ErrorPtr>;
+
+    /// Adds any post-route configuration to the [Router].
+    fn post_configure_router(&self, router: Router) -> Result<Router, ErrorPtr>;
 }
 
 downcast_sync!(dyn Controller + Send + Sync);
