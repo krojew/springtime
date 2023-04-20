@@ -16,8 +16,6 @@ async = ["futures", "springtime-di-derive/async"]
 threadsafe = ["springtime-di-derive/threadsafe"]
 derive = ["springtime-di-derive"]
 default = ["threadsafe", "derive"]
-# only used for async examples - not for client usage
-async-examples = ["async", "tokio"]
 
 [dependencies]
 derivative = "2.2.0"
@@ -27,12 +25,12 @@ inventory = "0.3.4"
 itertools = "0.10.5"
 springtime-di-derive = { path = "../springtime-di-derive", version = "0.3", optional = true, default-features = false }
 thiserror = "1.0.39"
-tokio = { version = "1.27.0", features = ["full"], optional = true }
 tracing = "0.1.37"
 
 [dev-dependencies]
 mockall = "0.11.4"
+tokio = { version = "1.27.0", features = ["full"] }
 
 [[example]]
 name = "09-async"
-required-features = ["async-examples"]
+required-features = ["async"]
