@@ -22,12 +22,12 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all-targets -p springtime-di -p springtime-web-axum
+          args: --all-targets -p springtime-di
       - name: Run remaining springtime tests
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all-targets -p springtime
+          args: --all-targets -p springtime -p springtime-web-axum
       - name: Format check
         uses: actions-rs/cargo@v1
         with:
