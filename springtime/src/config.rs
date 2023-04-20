@@ -33,7 +33,7 @@ fn convert_error<E: Error + 'static>(error: E) -> ErrorPtr {
 
 /// Framework configuration which can be provided by an [ApplicationConfigProvider].
 #[non_exhaustive]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct ApplicationConfig {
     /// Should a default tracing logger be installed in the scope of the application.
     pub install_tracing_logger: bool,
