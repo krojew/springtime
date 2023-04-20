@@ -1,4 +1,5 @@
-//! Functionality related to defining [Controller]s.
+//! Functionality related to defining [Controller]s - containers for functions which handle web
+//! requests.
 
 use axum::Router;
 use downcast::{downcast_sync, AnySync};

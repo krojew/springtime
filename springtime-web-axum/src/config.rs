@@ -35,7 +35,7 @@ impl Default for ServerConfig {
 
 /// Framework configuration which can be provided by an [WebConfigProvider].
 #[non_exhaustive]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct WebConfig {
     /// Map from server name to their config. Typically, only one server with one address will be
     /// present (see: [DEFAULT_SERVER_NAME], but in case multiple servers are desired, they should
