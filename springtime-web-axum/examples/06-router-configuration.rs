@@ -46,7 +46,8 @@ impl RouterConfigure for ExampleRouterConfigure {
     }
 }
 
-// yet another way is
+// yet another way is to provide a custom RouterBootstrap, but this is an advanced feature, thus out
+// of scope of this example
 
 #[tokio::main]
 async fn main() {
