@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use portpicker::pick_unused_port;
+use portpicker::{pick_unused_port, Port};
 use springtime::application;
 use springtime::runner::{BoxFuture, FutureExt};
 use springtime_di::instance_provider::ErrorPtr;
@@ -17,8 +17,8 @@ struct TestController;
 #[controller(path = "/test", server_names = ["default", "test"])]
 impl TestController {
     #[get("/:user_id")]
-    async fn hello_world(&self, Path(_user_id): Path<u32>) -> &'static str {
-        "Hello world!"
+    async fn hello_world(&self, Path(user_id): Path<u32>) -> String {
+        format!("Hello {user_id}!")
     }
 
     #[post("/")]
@@ -45,7 +45,7 @@ impl TestWebConfigProvider {
     fn new() -> BoxFuture<'static, Result<Self, ErrorPtr>> {
         async {
             let mut server_config = ServerConfig::default();
-            server_config.listen_address = format!("127.0.0.1:{}", pick_unused_port().unwrap());
+            server_config.listen_address = format!("127.0.0.1:{}", *PORT);
 
             let mut config = WebConfig::default();
             config.servers = [("test".to_string(), server_config)].into_iter().collect();
@@ -58,6 +58,7 @@ impl TestWebConfigProvider {
 
 static SHUTDOWN_SIGNAL: Lazy<Mutex<Option<ShutdownSignalSender>>> = Lazy::new(Default::default);
 static START_BARRIER: Lazy<Barrier> = Lazy::new(|| Barrier::new(2));
+static PORT: Lazy<Port> = Lazy::new(|| pick_unused_port().unwrap());
 
 #[derive(Component)]
 struct TestShutdownSignalSource;
@@ -80,6 +81,14 @@ async fn should_register_controller() {
         let mut application = application::create_default().unwrap();
         application.run().await.unwrap();
     });
+
+    let body = reqwest::get(format!("http://127.0.0.1:{}/test/42", *PORT))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert_eq!(body, "Hello 42!");
 
     START_BARRIER.wait().await;
     SHUTDOWN_SIGNAL
