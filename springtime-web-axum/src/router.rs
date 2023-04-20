@@ -3,10 +3,21 @@
 
 use crate::controller::Controller;
 use axum::Router;
+#[cfg(test)]
+use mockall::automock;
 use springtime_di::component_registry::conditional::unregistered_component;
 use springtime_di::instance_provider::{ComponentInstancePtr, ErrorPtr};
 use springtime_di::{component_alias, injectable, Component};
 use std::sync::Arc;
+
+/// Trait for configuring [Router] created by [RouterBootstrap]. Multiple such components can be
+/// present and each one will be called with the current router instance.
+#[injectable]
+#[cfg_attr(test, automock)]
+pub trait RouterConfigure {
+    /// Configure and return existing [Router].
+    fn configure(&self, router: Router) -> Result<Router, ErrorPtr>;
+}
 
 /// Trait for creating a [Router], usually based on injected
 /// [Controller](crate::controller::Controller)s.
@@ -20,6 +31,7 @@ pub trait RouterBootstrap {
 #[component(priority = -128, condition = "unregistered_component::<dyn RouterBootstrap + Send + Sync>")]
 struct ControllerRouterBootstrap {
     controllers: Vec<ComponentInstancePtr<dyn Controller + Send + Sync>>,
+    configure_components: Vec<ComponentInstancePtr<dyn RouterConfigure + Send + Sync>>,
 }
 
 #[component_alias]
@@ -40,13 +52,18 @@ impl RouterBootstrap for ControllerRouterBootstrap {
                     .map_err(|error| Arc::new(error) as ErrorPtr)
                     .map(|inner_router| router.nest(&path, inner_router))
             })
+            .and_then(|router| {
+                self.configure_components
+                    .iter()
+                    .try_fold(router, |router, configure| configure.configure(router))
+            })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::controller::MockController;
-    use crate::router::{ControllerRouterBootstrap, RouterBootstrap};
+    use crate::router::{ControllerRouterBootstrap, MockRouterConfigure, RouterBootstrap};
     use axum::Router;
     use fxhash::FxHashSet;
     use springtime_di::instance_provider::ComponentInstancePtr;
@@ -67,6 +84,7 @@ mod tests {
 
         let bootstrap = ControllerRouterBootstrap {
             controllers: vec![ComponentInstancePtr::new(controller)],
+            configure_components: vec![],
         };
         assert!(bootstrap.bootstrap_router("1").is_ok());
     }
@@ -86,7 +104,23 @@ mod tests {
 
         let bootstrap = ControllerRouterBootstrap {
             controllers: vec![ComponentInstancePtr::new(controller)],
+            configure_components: vec![],
         };
         assert!(bootstrap.bootstrap_router("3").is_ok());
+    }
+
+    #[test]
+    fn should_pass_existing_router_for_configuration() {
+        let mut configure = MockRouterConfigure::new();
+        configure
+            .expect_configure()
+            .times(1)
+            .returning(|router| Ok(router));
+
+        let bootstrap = ControllerRouterBootstrap {
+            controllers: vec![],
+            configure_components: vec![ComponentInstancePtr::new(configure)],
+        };
+        assert!(bootstrap.bootstrap_router("1").is_ok());
     }
 }
