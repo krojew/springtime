@@ -12,8 +12,8 @@
 //!
 //! ```
 //! use springtime::application;
-//! use springtime::runner::{ApplicationRunner, BoxFuture};
-//! use springtime_di::future::FutureExt;
+//! use springtime::runner::ApplicationRunner;
+//! use springtime::future::{BoxFuture, FutureExt};
 //! use springtime_di::instance_provider::ErrorPtr;
 //! use springtime_di::{component_alias, Component};
 //!
