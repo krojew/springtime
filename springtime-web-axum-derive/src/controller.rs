@@ -4,7 +4,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::spanned::Spanned;
 use syn::{
-    Attribute, Error, Expr, ExprLit, FnArg, Ident, ImplItem, Item, Lit, LitStr, Result, Type,
+    Attribute, Error, Expr, ExprLit, FnArg, Ident, ImplItem, Item, ItemImpl, Lit, LitStr, Result,
 };
 
 macro_rules! impl_handlers {
@@ -28,7 +28,7 @@ enum ControllerMethod {
 fn generate_method_configuration(
     attr: &Attribute,
     inner_code: &TokenStream,
-    self_ty: &Type,
+    method_prefix: &TokenStream,
     method_name: &Ident,
 ) -> Result<Option<ControllerMethod>> {
     attr.meta
@@ -40,11 +40,11 @@ fn generate_method_configuration(
             }
 
             if ident == "router_source" {
-                return Some(Ok(ControllerMethod::Source(quote!(#self_ty::#method_name(self)))));
+                return Some(Ok(ControllerMethod::Source(quote!(#method_prefix::#method_name(self)))));
             }
 
             if ident == "router_post_configure" {
-                return Some(Ok(ControllerMethod::PostConfigure(quote!(#self_ty::#method_name(self, router)))));
+                return Some(Ok(ControllerMethod::PostConfigure(quote!(#method_prefix::#method_name(self, router)))));
             }
 
             attr.parse_args::<LitStr>().map(|path| {
@@ -60,15 +60,19 @@ struct RouterConfiguration {
     post_configure_router: Option<TokenStream>,
 }
 
-fn extract_router_configuration(
-    items: &mut Vec<ImplItem>,
-    self_ty: &Type,
-) -> Result<RouterConfiguration> {
+fn extract_router_configuration(item: &mut ItemImpl) -> Result<RouterConfiguration> {
     let mut method_configs = vec![];
     let mut router_source = None;
     let mut post_configure_router = None;
 
-    for item in items {
+    let self_ty = item.self_ty.as_ref();
+    let method_prefix = item
+        .trait_
+        .as_ref()
+        .map(|(_, path, ..)| quote!(<#self_ty as #path>))
+        .unwrap_or_else(|| quote!(#self_ty));
+
+    for item in &mut item.items {
         if let ImplItem::Fn(item) = item {
             let name = &item.sig.ident;
             let args = item
@@ -83,13 +87,14 @@ fn extract_router_configuration(
             let function_call = quote! {
                 {
                     let self_instance_ptr = self_instance_ptr.clone();
-                    move |#(#args),*| async move { self_instance_ptr.#name(#(#args),*).await }
+                    move |#(#args),*| async move { #method_prefix::#name(self_instance_ptr.as_ref(), #(#args),*).await }
                 }
             };
 
             let (normal_attrs, controller_attrs): (Vec<_>, Vec<_>) =
                 item.attrs.iter().partition_map(|attr| {
-                    match generate_method_configuration(attr, &function_call, self_ty, name) {
+                    match generate_method_configuration(attr, &function_call, &method_prefix, name)
+                    {
                         Ok(Some(controller_attr)) => Either::Right(Ok(controller_attr)),
                         Ok(None) => Either::Left(attr.clone()),
                         Err(error) => Either::Right(Err(error)),
@@ -136,7 +141,6 @@ fn extract_router_configuration(
 //noinspection DuplicatedCode
 pub fn generate_controller(item: Item, attributes: &ControllerAttributes) -> Result<TokenStream> {
     if let Item::Impl(mut item) = item {
-        let ty = &item.self_ty;
         let path = if let Some(path) = &attributes.path {
             quote! {
                 fn path(&self) -> Option<String> {
@@ -174,7 +178,9 @@ pub fn generate_controller(item: Item, attributes: &ControllerAttributes) -> Res
             methods: router_config,
             router_source,
             post_configure_router,
-        } = extract_router_configuration(&mut item.items, ty)?;
+        } = extract_router_configuration(&mut item)?;
+
+        let ty = &item.self_ty;
 
         let router_source = router_source
             .map(|router_source| quote!(#router_source))
