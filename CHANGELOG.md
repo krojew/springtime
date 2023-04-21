@@ -1,3 +1,17 @@
+## [springtime] 
+
+### New 
+
+* Reading config from optional `springtime.json` file in current directory.
+* Re-exporting `BoxFuture` from `springtime-di`.
+* `ApplicationConfig` derives now `Deserialize`.
+
+### Changed
+
+* Moved `BoxFuture`, `FutureExt` re-exports to `future` mod.
+* Runners with the same priority run concurrently with `async` feature.
+* Removed `async-examples` feature.
+
 ## [springtime-di] 0.3.2
 
 ### Changed
