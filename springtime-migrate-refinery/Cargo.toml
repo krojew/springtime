@@ -12,12 +12,9 @@ readme = "README.md"
 
 [features]
 default = []
-mysql_async = ["refinery/mysql_async"]
-postgres = ["refinery/postgres"]
-rusqlite-bundled = ["refinery/rusqlite-bundled"]
-tiberius = ["refinery/tiberius"]
-tiberius-config = ["refinery/tiberius-config"]
-tokio-postgres = ["refinery/tokio-postgres"]
+mysql_async = ["refinery-core/mysql_async"]
+tiberius = ["refinery-core/tiberius"]
+tokio-postgres = ["refinery-core/tokio-postgres"]
 
 [dependencies]
-refinery = { version = "0.8.7", default-features = false }
+refinery-core = { version = "0.8.7", default-features = false }
