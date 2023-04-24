@@ -1,0 +1,23 @@
+[package]
+name = "springtime-migrate-refinery"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+description = "SQL migration framework based on dependency injection."
+documentation = "https://docs.rs/springtime-migrate-refinery"
+repository.workspace = true
+license.workspace = true
+keywords = ["sql", "di", "spring", "framework", "migrations"]
+readme = "README.md"
+
+[features]
+default = []
+mysql_async = ["refinery/mysql_async"]
+postgres = ["refinery/postgres"]
+rusqlite-bundled = ["refinery/rusqlite-bundled"]
+tiberius = ["refinery/tiberius"]
+tiberius-config = ["refinery/tiberius-config"]
+tokio-postgres = ["refinery/tokio-postgres"]
+
+[dependencies]
+refinery = { version = "0.8.7", default-features = false }
