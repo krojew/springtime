@@ -11,8 +11,7 @@ clients and migrations via dependency injection, which further eases creating
 and applying migrations, either from files or Rust code.
 
 Note: in addition to this crate, you need to also import
-[springtime-di](https://crates.io/crates/springtime-di) and
-[refinery-core](https://crates.io/crates/refinery_core).
+[springtime-di](https://crates.io/crates/springtime-di).
 
 ## Features
 

@@ -11,3 +11,4 @@
 //! * `refinery` async db features: `mysql_async`, `tiberius`, `tokio-postgres`
 
 pub mod migration;
+pub use refinery_core as refinery;

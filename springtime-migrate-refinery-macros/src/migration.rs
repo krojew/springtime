@@ -45,17 +45,17 @@ pub fn generate_migrations(path: &str, item_span: Span) -> Result<TokenStream> {
             quote! {
                 #[automatically_derived]
                 mod migrations {
-                    use refinery_core::Migration;
                     use springtime::future::{BoxFuture, FutureExt};
                     use springtime::runner::ErrorPtr;
                     use springtime_di::{component_alias, Component};
                     use springtime_migrate_refinery::migration::MigrationSource;
+                    use springtime_migrate_refinery::refinery::Migration;
 
                     #[derive(Component)]
-                    struct GenratedMigrationProvider;
+                    struct GenratedMigrationSource;
 
                     #[component_alias]
-                    impl MigrationSource for GenratedMigrationProvider {
+                    impl MigrationSource for GenratedMigrationSource {
                         fn migrations(&self) -> Result<Vec<Migration>, ErrorPtr> {
                             Ok(vec![#(#migrations),*])
                         }
