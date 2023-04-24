@@ -17,5 +17,5 @@ pub use springtime_migrate_refinery_macros::embed_migrations;
 #[injectable]
 pub trait MigrationSource {
     /// Provides a migration from this source.
-    fn migration(&self) -> Result<Migration, ErrorPtr>;
+    fn migrations(&self) -> Result<Vec<Migration>, ErrorPtr>;
 }

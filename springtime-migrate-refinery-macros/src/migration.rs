@@ -1,10 +1,11 @@
-use proc_macro2::{Ident, Span, TokenStream};
+use itertools::Itertools;
+use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use refinery_core::{find_migration_files, MigrationType};
 use std::path::Path;
 use syn::{Error, Result};
 
-fn generate_migration(index: usize, path: &Path, item_span: Span) -> Result<TokenStream> {
+fn generate_migration(path: &Path, item_span: Span) -> Result<TokenStream> {
     let filename = path
         .file_stem()
         .and_then(|file| file.to_os_string().into_string().ok())
@@ -16,38 +17,10 @@ fn generate_migration(index: usize, path: &Path, item_span: Span) -> Result<Toke
         })?;
 
     let path = path.display().to_string();
-    let struct_name = format!("Migration{index}");
-    let ctor_name = format!("{struct_name}::new");
-    let struct_ident = Ident::new(&struct_name, Span::call_site());
 
     Ok(quote! {
-        #[derive(Component)]
-        #[component(constructor = #ctor_name)]
-        struct #struct_ident {
-            #[component(ignore)]
-            name: &'static str,
-            #[component(ignore)]
-            sql: &'static str,
-        }
-
-        impl #struct_ident {
-            fn new() -> BoxFuture<'static, Result<Self, ErrorPtr>> {
-                async {
-                    Ok(Self {
-                        name: #filename,
-                        sql: include_str!(#path),
-                    })
-                }.boxed()
-            }
-        }
-
-        #[component_alias]
-        impl MigrationSource for #struct_ident {
-            fn migration(&self) -> Result<Migration, ErrorPtr> {
-                Migration::unapplied(self.name, self.sql)
-                    .map_err(|error| std::sync::Arc::new(error) as ErrorPtr)
-            }
-        }
+        Migration::unapplied(#filename, include_str!(#path))
+            .map_err(|error| std::sync::Arc::new(error) as ErrorPtr)?
     })
 }
 
@@ -60,17 +33,17 @@ pub fn generate_migrations(path: &str, item_span: Span) -> Result<TokenStream> {
     })?;
 
     files
-        .enumerate()
-        .try_fold(quote!(), |migrations, (index, path)| {
-            generate_migration(index, &path, item_span).map(|migration| {
+        .map(|path| {
+            generate_migration(&path, item_span).map(|migration| {
                 quote! {
-                    #migrations
                     #migration
                 }
             })
         })
-        .map(|migrations| {
+        .try_collect()
+        .map(|migrations: Vec<_>| {
             quote! {
+                #[automatically_derived]
                 mod migrations {
                     use refinery_core::Migration;
                     use springtime::future::{BoxFuture, FutureExt};
@@ -78,7 +51,15 @@ pub fn generate_migrations(path: &str, item_span: Span) -> Result<TokenStream> {
                     use springtime_di::{component_alias, Component};
                     use springtime_migrate_refinery::migration::MigrationSource;
 
-                    #migrations
+                    #[derive(Component)]
+                    struct GenratedMigrationProvider;
+
+                    #[component_alias]
+                    impl MigrationSource for GenratedMigrationProvider {
+                        fn migrations(&self) -> Result<Vec<Migration>, ErrorPtr> {
+                            Ok(vec![#(#migrations),*])
+                        }
+                    }
                 }
             }
         })
