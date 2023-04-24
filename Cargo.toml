@@ -6,6 +6,7 @@ members = [
     "springtime-web-axum",
     "springtime-web-axum-derive",
     "springtime-migrate-refinery",
+    "springtime-migrate-refinery-macros",
 ]
 
 [workspace.package]

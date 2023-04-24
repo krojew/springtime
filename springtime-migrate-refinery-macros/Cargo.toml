@@ -1,0 +1,21 @@
+[package]
+name = "springtime-migrate-refinery-macros"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+description = "Macros for the springtime-migrate-refinery crate."
+documentation = "https://docs.rs/springtime-migrate-refinery"
+repository.workspace = true
+license.workspace = true
+keywords = ["sql", "di", "spring", "framework", "migrations"]
+readme = "README.md"
+rust-version = "1.58"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0.52"
+refinery-core = "0.8.7"
+syn = { version = "2.0.2", features = ["full"] }
+quote = "1.0.26"

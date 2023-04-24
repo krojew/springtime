@@ -9,3 +9,5 @@
 //! ### Features
 //!
 //! * `refinery` async db features: `mysql_async`, `tiberius`, `tokio-postgres`
+
+pub mod migration;

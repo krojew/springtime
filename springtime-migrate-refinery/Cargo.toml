@@ -18,3 +18,9 @@ tokio-postgres = ["refinery-core/tokio-postgres"]
 
 [dependencies]
 refinery-core = { version = "0.8.7", default-features = false }
+springtime = { version = "0.3.0", path = "../springtime" }
+springtime-di = { version = "0.3.2", path = "../springtime-di" }
+springtime-migrate-refinery-macros = { version = "0.1.0", path = "../springtime-migrate-refinery-macros" }
+
+[dev-dependencies]
+tokio = { version = "1.27.0", features = ["rt", "macros", "rt-multi-thread"] }
