@@ -34,6 +34,7 @@ fn convert_error<E: Error + 'static>(error: E) -> ErrorPtr {
 /// Framework configuration which can be provided by an [ApplicationConfigProvider].
 #[non_exhaustive]
 #[derive(Clone, Debug, Deserialize)]
+#[serde(default)]
 pub struct ApplicationConfig {
     /// Should a default tracing logger be installed in the scope of the application.
     pub install_tracing_logger: bool,
@@ -47,25 +48,13 @@ impl Default for ApplicationConfig {
     }
 }
 
-impl From<OptionalApplicationConfig> for ApplicationConfig {
-    fn from(value: OptionalApplicationConfig) -> Self {
-        let default = Self::default();
-        Self {
-            install_tracing_logger: value
-                .install_tracing_logger
-                .unwrap_or(default.install_tracing_logger),
-        }
-    }
-}
-
 impl ApplicationConfig {
     fn init_from_environment() -> Result<Self, ConfigError> {
         Config::builder()
             .add_source(File::with_name(CONFIG_FILE).required(false))
             .add_source(Environment::with_prefix(CONFIG_ENV_PREFIX))
             .build()
-            .and_then(|config| config.try_deserialize::<OptionalApplicationConfig>())
-            .map(|config| config.into())
+            .and_then(|config| config.try_deserialize::<ApplicationConfig>())
     }
 }
 
@@ -128,9 +117,4 @@ impl ApplicationConfigProvider for DefaultApplicationConfigProvider {
     fn config(&self) -> Result<&ApplicationConfig, ErrorPtr> {
         self.map_config()
     }
-}
-
-#[derive(Deserialize)]
-struct OptionalApplicationConfig {
-    install_tracing_logger: Option<bool>,
 }

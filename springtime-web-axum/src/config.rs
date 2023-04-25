@@ -20,6 +20,7 @@ pub const DEFAULT_SERVER_NAME: &str = "default";
 /// Server configuration.
 #[non_exhaustive]
 #[derive(Clone, Debug, Deserialize)]
+#[serde(default)]
 pub struct ServerConfig {
     /// Address on which to listen.
     pub listen_address: String,
@@ -36,6 +37,7 @@ impl Default for ServerConfig {
 /// Framework configuration which can be provided by an [WebConfigProvider].
 #[non_exhaustive]
 #[derive(Clone, Debug, Deserialize)]
+#[serde(default)]
 pub struct WebConfig {
     /// Map from server name to their config. Typically, only one server with one address will be
     /// present (see: [DEFAULT_SERVER_NAME], but in case multiple servers are desired, they should
@@ -53,22 +55,13 @@ impl Default for WebConfig {
     }
 }
 
-impl From<OptionalWebConfig> for WebConfig {
-    fn from(value: OptionalWebConfig) -> Self {
-        let default = Self::default();
-        Self {
-            servers: value.servers.unwrap_or(default.servers),
-        }
-    }
-}
-
 impl WebConfig {
     fn init_from_config() -> Result<Self, ErrorPtr> {
         Config::builder()
             .add_source(File::with_name(CONFIG_FILE).required(false))
             .build()
-            .and_then(|config| config.try_deserialize::<OptionalWebConfigWrapper>())
-            .map(|config| config.web.map(|config| config.into()).unwrap_or_default())
+            .and_then(|config| config.try_deserialize::<WebConfigWrapper>())
+            .map(|config| config.web)
             .map_err(|error| Arc::new(error) as ErrorPtr)
     }
 }
@@ -113,12 +106,8 @@ impl DefaultWebConfigProvider {
     }
 }
 
-#[derive(Deserialize)]
-struct OptionalWebConfig {
-    servers: Option<FxHashMap<String, ServerConfig>>,
-}
-
-#[derive(Deserialize)]
-struct OptionalWebConfigWrapper {
-    web: Option<OptionalWebConfig>,
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct WebConfigWrapper {
+    web: WebConfig,
 }
