@@ -9,6 +9,7 @@ repository.workspace = true
 license.workspace = true
 keywords = ["di", "dependency-injection", "spring", "framework"]
 readme = "README.md"
+categories = ["web-programming", "asynchronous"]
 
 [features]
 async = ["springtime-di/async", "threadsafe", "futures"]

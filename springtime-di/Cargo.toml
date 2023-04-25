@@ -10,6 +10,7 @@ repository.workspace = true
 license.workspace = true
 keywords = ["di", "dependency-injection", "ioc", "injection", "spring"]
 readme = "README.md"
+categories = ["asynchronous"]
 
 [features]
 async = ["futures", "springtime-di-derive/async"]

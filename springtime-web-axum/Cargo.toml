@@ -9,6 +9,7 @@ repository.workspace = true
 license.workspace = true
 keywords = ["web", "http", "spring", "framework", "axum"]
 readme = "README.md"
+categories = ["asynchronous", "web-programming", "web-programming::http-server"]
 
 [features]
 default = ["derive"]

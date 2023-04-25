@@ -9,6 +9,7 @@ repository.workspace = true
 license.workspace = true
 keywords = ["sql", "di", "spring", "framework", "migrations"]
 readme = "README.md"
+categories = ["asynchronous", "database"]
 
 [features]
 default = []
