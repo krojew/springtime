@@ -25,6 +25,7 @@ struct MigrationRunner {
     executors: Vec<ComponentInstancePtr<dyn MigrationRunnerExecutor + Send + Sync>>,
 }
 
+#[component_alias]
 impl ApplicationRunner for MigrationRunner {
     fn run(&self) -> BoxFuture<'_, Result<(), ErrorPtr>> {
         async {
