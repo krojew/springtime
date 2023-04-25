@@ -77,6 +77,7 @@ impl WebConfig {
 /// configuration.
 #[injectable]
 pub trait WebConfigProvider {
+    /// Provide current config.
     fn config(&self) -> BoxFuture<'_, Result<&WebConfig, ErrorPtr>>;
 }
 

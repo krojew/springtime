@@ -13,6 +13,7 @@
 //!
 //! * `refinery` async db features: `mysql_async`, `tiberius`, `tokio-postgres`
 
+pub mod config;
 pub mod migration;
 pub mod runner;
 

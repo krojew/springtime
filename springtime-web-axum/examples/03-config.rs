@@ -9,8 +9,8 @@ use springtime_web_axum::config::{
 };
 use springtime_web_axum::controller;
 
-// web is provided by a WebConfigProvider, which by default, uses a configuration file (see module
-// documentation)
+// config is provided by a WebConfigProvider, which by default, uses a configuration file (see
+// module documentation)
 // to provide your own, register a component implementing this trait, and it should take precedence
 // over the default one
 #[derive(Component)]

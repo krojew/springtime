@@ -73,9 +73,11 @@ impl ApplicationConfig {
 /// application configuration.
 #[injectable]
 pub trait ApplicationConfigProvider {
+    /// Provide current config.
     #[cfg(feature = "async")]
     fn config(&self) -> BoxFuture<'_, Result<&ApplicationConfig, ErrorPtr>>;
 
+    /// Provide current config.
     #[cfg(not(feature = "async"))]
     fn config(&self) -> Result<&ApplicationConfig, ErrorPtr>;
 }

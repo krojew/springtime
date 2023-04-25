@@ -17,8 +17,10 @@ tiberius = ["refinery-core/tiberius"]
 tokio-postgres = ["refinery-core/tokio-postgres"]
 
 [dependencies]
+config = "0.13.3"
 itertools = "0.10.5"
 refinery-core = { version = "0.8.7", default-features = false }
+serde = "1.0.160"
 springtime = { version = "0.3.0", path = "../springtime" }
 springtime-di = { version = "0.3.2", path = "../springtime-di" }
 springtime-migrate-refinery-macros = { version = "0.1.0", path = "../springtime-migrate-refinery-macros" }
