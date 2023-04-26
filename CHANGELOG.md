@@ -1,3 +1,9 @@
+## [springtime-di] 1.0.0
+
+### New
+
+* Some errors now contain textual type names for easy debugging.
+
 ## [springtime] 0.3.0
 
 ### New 
