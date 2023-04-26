@@ -340,18 +340,20 @@ fn enrich_error<T: ?Sized>(
     error: ComponentInstanceProviderError,
 ) -> ComponentInstanceProviderError {
     match error {
-        ComponentInstanceProviderError::NoPrimaryInstance { type_id, .. } => {
-            ComponentInstanceProviderError::NoPrimaryInstance {
-                type_id,
-                type_name: Some(type_name::<T>().to_string()),
-            }
-        }
-        ComponentInstanceProviderError::DependencyCycle { type_id, .. } => {
-            ComponentInstanceProviderError::DependencyCycle {
-                type_id,
-                type_name: Some(type_name::<T>().to_string()),
-            }
-        }
+        ComponentInstanceProviderError::NoPrimaryInstance {
+            type_id,
+            type_name: None,
+        } => ComponentInstanceProviderError::NoPrimaryInstance {
+            type_id,
+            type_name: Some(type_name::<T>().to_string()),
+        },
+        ComponentInstanceProviderError::DependencyCycle {
+            type_id,
+            type_name: None,
+        } => ComponentInstanceProviderError::DependencyCycle {
+            type_id,
+            type_name: Some(type_name::<T>().to_string()),
+        },
         _ => error,
     }
 }
