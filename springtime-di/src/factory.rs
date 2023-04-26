@@ -154,9 +154,10 @@ impl ComponentFactory {
             .types_under_construction
             .contains(&definition.resolved_type_id)
         {
-            return Err(ComponentInstanceProviderError::DependencyCycle(
-                definition.resolved_type_id,
-            ));
+            return Err(ComponentInstanceProviderError::DependencyCycle {
+                type_id: definition.resolved_type_id,
+                type_name: None,
+            });
         }
 
         let scope = {
@@ -243,10 +244,12 @@ impl ComponentInstanceProvider for ComponentFactory {
         Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError>,
     > {
         async move {
-            let definition = self
-                .definition_registry
-                .primary_component(type_id)
-                .ok_or(ComponentInstanceProviderError::NoPrimaryInstance(type_id))?;
+            let definition = self.definition_registry.primary_component(type_id).ok_or(
+                ComponentInstanceProviderError::NoPrimaryInstance {
+                    type_id,
+                    type_name: None,
+                },
+            )?;
 
             self.create_instance(&definition).await
         }
@@ -258,10 +261,12 @@ impl ComponentInstanceProvider for ComponentFactory {
         &mut self,
         type_id: TypeId,
     ) -> Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError> {
-        let definition = self
-            .definition_registry
-            .primary_component(type_id)
-            .ok_or(ComponentInstanceProviderError::NoPrimaryInstance(type_id))?;
+        let definition = self.definition_registry.primary_component(type_id).ok_or(
+            ComponentInstanceProviderError::NoPrimaryInstance {
+                type_id,
+                type_name: None,
+            },
+        )?;
 
         self.create_instance(&definition)
     }
@@ -369,9 +374,10 @@ mod tests {
         fn error_constructor(
             _instance_provider: &mut dyn ComponentInstanceProvider,
         ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
-            Err(ComponentInstanceProviderError::NoPrimaryInstance(
-                TypeId::of::<i8>(),
-            ))
+            Err(ComponentInstanceProviderError::NoPrimaryInstance {
+                type_id: TypeId::of::<i8>(),
+                type_name: None,
+            })
         }
 
         fn recursive_constructor(
@@ -449,7 +455,7 @@ mod tests {
             let mut factory = create_factory(registry);
             assert!(matches!(
                 factory.primary_instance(id).unwrap_err(),
-                ComponentInstanceProviderError::DependencyCycle(id) if id == TypeId::of::<i8>()
+                ComponentInstanceProviderError::DependencyCycle { type_id, .. } if type_id == TypeId::of::<i8>()
             ));
         }
 
@@ -467,7 +473,7 @@ mod tests {
             let mut factory = create_factory(registry);
             assert!(matches!(
                 factory.primary_instance(id).unwrap_err(),
-                ComponentInstanceProviderError::NoPrimaryInstance(id) if id == TypeId::of::<i8>()
+                ComponentInstanceProviderError::NoPrimaryInstance { type_id, .. } if type_id == TypeId::of::<i8>()
             ));
         }
 
@@ -521,7 +527,7 @@ mod tests {
             let mut factory = create_factory(registry);
             assert!(matches!(
                 factory.primary_instance(id).unwrap_err(),
-                ComponentInstanceProviderError::NoPrimaryInstance(_)
+                ComponentInstanceProviderError::NoPrimaryInstance { .. }
             ));
         }
 

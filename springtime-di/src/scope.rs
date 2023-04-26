@@ -124,9 +124,10 @@ mod tests {
         fn test_constructor(
             _instance_provider: &mut dyn ComponentInstanceProvider,
         ) -> Result<ComponentInstanceAnyPtr, ComponentInstanceProviderError> {
-            Err(ComponentInstanceProviderError::IncompatibleComponent(
-                TypeId::of::<i8>(),
-            ))
+            Err(ComponentInstanceProviderError::IncompatibleComponent {
+                type_id: TypeId::of::<i8>(),
+                type_name: type_name::<i8>().to_string(),
+            })
         }
 
         fn test_cast(

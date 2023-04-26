@@ -215,7 +215,10 @@ mod component_derive_test {
                 });
             }
 
-            Err(ComponentInstanceProviderError::NoPrimaryInstance(type_id))
+            Err(ComponentInstanceProviderError::NoPrimaryInstance {
+                type_id,
+                type_name: None,
+            })
         }
 
         #[cfg(feature = "async")]
@@ -246,7 +249,10 @@ mod component_derive_test {
                     });
                 }
 
-                Err(ComponentInstanceProviderError::NoPrimaryInstance(type_id))
+                Err(ComponentInstanceProviderError::NoPrimaryInstance {
+                    type_id,
+                    type_name: None,
+                })
             }
             .boxed()
         }

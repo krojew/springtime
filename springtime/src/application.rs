@@ -317,8 +317,13 @@ mod tests {
             .with(eq(type_id))
             .times(1)
             .returning(move |_| {
-                async move { Err(ComponentInstanceProviderError::NoPrimaryInstance(type_id)) }
-                    .boxed()
+                async move {
+                    Err(ComponentInstanceProviderError::NoPrimaryInstance {
+                        type_id,
+                        type_name: None,
+                    })
+                }
+                .boxed()
             });
 
         let mut application = Application::new(instance_provider);
@@ -341,9 +346,10 @@ mod tests {
                 let mut runner = MockApplicationRunner::new();
                 runner.expect_run().returning(|| {
                     async {
-                        Err(Arc::new(ComponentInstanceProviderError::NoPrimaryInstance(
-                            TypeId::of::<i8>(),
-                        )) as ErrorPtr)
+                        Err(Arc::new(ComponentInstanceProviderError::NoPrimaryInstance {
+                            type_id: TypeId::of::<i8>(),
+                            type_name: None,
+                        }) as ErrorPtr)
                     }
                     .boxed()
                 });

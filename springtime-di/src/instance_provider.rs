@@ -9,7 +9,7 @@ use futures::FutureExt;
 use itertools::Itertools;
 #[cfg(test)]
 use mockall::automock;
-use std::any::{Any, TypeId};
+use std::any::{type_name, Any, TypeId};
 use std::error::Error;
 #[cfg(not(feature = "threadsafe"))]
 use std::rc::Rc;
@@ -27,11 +27,14 @@ pub type ErrorPtr = Arc<dyn Error + Send + Sync>;
 pub enum ComponentInstanceProviderError {
     /// Primary instance of a given component is not specified, if many components exist for a given
     /// type, or not component registered at all.
-    #[error("Cannot find a primary instance for component '{0:?}' - either none or multiple exists without a primary marker.")]
-    NoPrimaryInstance(TypeId),
+    #[error("Cannot find a primary instance for component '{type_id:?}/{type_name:?}' - either none or multiple exists without a primary marker.")]
+    NoPrimaryInstance {
+        type_id: TypeId,
+        type_name: Option<String>,
+    },
     /// Tired to case one type to another, incompatible one.
-    #[error("Tried to downcast component to incompatible type: {0:?}")]
-    IncompatibleComponent(TypeId),
+    #[error("Tried to downcast component to incompatible type: {type_id:?}/{type_name}")]
+    IncompatibleComponent { type_id: TypeId, type_name: String },
     /// Cannot find component with given name.
     #[error("Cannot find named component: {0}")]
     NoNamedInstance(String),
@@ -39,9 +42,12 @@ pub enum ComponentInstanceProviderError {
     /// [ScopeFactory](crate::scope::ScopeFactory).
     #[error("Unrecognized scope: {0}")]
     UnrecognizedScope(String),
-    #[error("Detected dependency cycle for: {0:?}")]
+    #[error("Detected dependency cycle for: {type_id:?}/{type_name:?}")]
     /// Found a cycle when creating given type.
-    DependencyCycle(TypeId),
+    DependencyCycle {
+        type_id: TypeId,
+        type_name: Option<String>,
+    },
     /// Custom constructor returned an error.
     #[error("Error in component constructor: {0}")]
     ConstructorError(#[source] ErrorPtr),
@@ -203,6 +209,7 @@ impl<CIP: ComponentInstanceProvider + ?Sized + Sync + Send> TypedComponentInstan
             self.primary_instance(type_id)
                 .await
                 .and_then(move |(p, cast)| cast_instance(p, cast, type_id))
+                .map_err(|error| enrich_error::<T>(error))
         }
         .boxed()
     }
@@ -214,8 +221,8 @@ impl<CIP: ComponentInstanceProvider + ?Sized + Sync + Send> TypedComponentInstan
         async {
             match self.primary_instance_typed::<T>().await {
                 Ok(ptr) => Ok(Some(ptr)),
-                Err(ComponentInstanceProviderError::NoPrimaryInstance(_)) => Ok(None),
-                Err(error) => Err(error),
+                Err(ComponentInstanceProviderError::NoPrimaryInstance { .. }) => Ok(None),
+                Err(error) => Err(enrich_error::<T>(error)),
             }
         }
         .boxed()
@@ -226,12 +233,15 @@ impl<CIP: ComponentInstanceProvider + ?Sized + Sync + Send> TypedComponentInstan
     ) -> BoxFuture<'_, Result<Vec<ComponentInstancePtr<T>>, ComponentInstanceProviderError>> {
         async {
             let type_id = TypeId::of::<T>();
-            self.instances(type_id).await.and_then(|instances| {
-                instances
-                    .into_iter()
-                    .map(move |(p, cast)| cast_instance(p, cast, type_id))
-                    .try_collect()
-            })
+            self.instances(type_id)
+                .await
+                .and_then(|instances| {
+                    instances
+                        .into_iter()
+                        .map(move |(p, cast)| cast_instance(p, cast, type_id))
+                        .try_collect()
+                })
+                .map_err(|error| enrich_error::<T>(error))
         }
         .boxed()
     }
@@ -246,6 +256,7 @@ impl<CIP: ComponentInstanceProvider + ?Sized + Sync + Send> TypedComponentInstan
             self.instance_by_name(&name, type_id)
                 .await
                 .and_then(move |(p, cast)| cast_instance(p, cast, type_id))
+                .map_err(|error| enrich_error::<T>(error))
         }
         .boxed()
     }
@@ -259,8 +270,8 @@ impl<CIP: ComponentInstanceProvider + ?Sized + Sync + Send> TypedComponentInstan
         async move {
             match self.instance_by_name_typed::<T>(&name).await {
                 Ok(ptr) => Ok(Some(ptr)),
-                Err(ComponentInstanceProviderError::NoPrimaryInstance(_)) => Ok(None),
-                Err(error) => Err(error),
+                Err(ComponentInstanceProviderError::NoPrimaryInstance { .. }) => Ok(None),
+                Err(error) => Err(enrich_error::<T>(error)),
             }
         }
         .boxed()
@@ -276,6 +287,7 @@ impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for
         let type_id = TypeId::of::<T>();
         self.primary_instance(type_id)
             .and_then(move |(p, cast)| cast_instance(p, cast, type_id))
+            .map_err(|error| enrich_error::<T>(error))
     }
 
     fn primary_instance_option<T: Injectable + ?Sized>(
@@ -283,8 +295,8 @@ impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for
     ) -> Result<Option<ComponentInstancePtr<T>>, ComponentInstanceProviderError> {
         match self.primary_instance_typed::<T>() {
             Ok(ptr) => Ok(Some(ptr)),
-            Err(ComponentInstanceProviderError::NoPrimaryInstance(_)) => Ok(None),
-            Err(error) => Err(error),
+            Err(ComponentInstanceProviderError::NoPrimaryInstance { .. }) => Ok(None),
+            Err(error) => Err(enrich_error::<T>(error)),
         }
     }
 
@@ -292,12 +304,14 @@ impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for
         &mut self,
     ) -> Result<Vec<ComponentInstancePtr<T>>, ComponentInstanceProviderError> {
         let type_id = TypeId::of::<T>();
-        self.instances(type_id).and_then(|instances| {
-            instances
-                .into_iter()
-                .map(move |(p, cast)| cast_instance(p, cast, type_id))
-                .try_collect()
-        })
+        self.instances(type_id)
+            .and_then(|instances| {
+                instances
+                    .into_iter()
+                    .map(move |(p, cast)| cast_instance(p, cast, type_id))
+                    .try_collect()
+            })
+            .map_err(|error| enrich_error::<T>(error))
     }
 
     fn instance_by_name_typed<T: Injectable + ?Sized>(
@@ -307,6 +321,7 @@ impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for
         let type_id = TypeId::of::<T>();
         self.instance_by_name(name, type_id)
             .and_then(move |(p, cast)| cast_instance(p, cast, type_id))
+            .map_err(|error| enrich_error::<T>(error))
     }
 
     fn instance_by_name_option<T: Injectable + ?Sized>(
@@ -315,9 +330,29 @@ impl<CIP: ComponentInstanceProvider + ?Sized> TypedComponentInstanceProvider for
     ) -> Result<Option<ComponentInstancePtr<T>>, ComponentInstanceProviderError> {
         match self.instance_by_name_typed::<T>(name) {
             Ok(ptr) => Ok(Some(ptr)),
-            Err(ComponentInstanceProviderError::NoPrimaryInstance(_)) => Ok(None),
-            Err(error) => Err(error),
+            Err(ComponentInstanceProviderError::NoPrimaryInstance { .. }) => Ok(None),
+            Err(error) => Err(enrich_error::<T>(error)),
         }
+    }
+}
+
+fn enrich_error<T: ?Sized>(
+    error: ComponentInstanceProviderError,
+) -> ComponentInstanceProviderError {
+    match error {
+        ComponentInstanceProviderError::NoPrimaryInstance { type_id, .. } => {
+            ComponentInstanceProviderError::NoPrimaryInstance {
+                type_id,
+                type_name: Some(type_name::<T>().to_string()),
+            }
+        }
+        ComponentInstanceProviderError::DependencyCycle { type_id, .. } => {
+            ComponentInstanceProviderError::DependencyCycle {
+                type_id,
+                type_name: Some(type_name::<T>().to_string()),
+            }
+        }
+        _ => error,
     }
 }
 
@@ -328,11 +363,17 @@ fn cast_instance<T: Injectable + ?Sized>(
 ) -> Result<ComponentInstancePtr<T>, ComponentInstanceProviderError> {
     debug_assert_eq!(type_id, TypeId::of::<T>());
     cast(instance)
-        .map_err(|_| ComponentInstanceProviderError::IncompatibleComponent(type_id))
+        .map_err(|_| ComponentInstanceProviderError::IncompatibleComponent {
+            type_id,
+            type_name: type_name::<T>().to_string(),
+        })
         .and_then(|p| {
             p.downcast::<ComponentInstancePtr<T>>()
                 .map(|p| (*p).clone())
-                .map_err(|_| ComponentInstanceProviderError::IncompatibleComponent(type_id))
+                .map_err(|_| ComponentInstanceProviderError::IncompatibleComponent {
+                    type_id,
+                    type_name: type_name::<T>().to_string(),
+                })
         })
 }
 
