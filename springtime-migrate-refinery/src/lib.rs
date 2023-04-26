@@ -11,7 +11,8 @@
 //!
 //! ### Features
 //!
-//! * `refinery` async db features: `mysql_async`, `tiberius`, `tokio-postgres`
+//! * `refinery` async db features: `mysql_async`, `rusqlite-bundled`, `tiberius`,
+//! `tiberius-config`, `tokio-postgres`
 
 pub mod config;
 pub mod migration;
