@@ -1,3 +1,9 @@
+## [springtime] 1.0.0
+
+### Changed
+
+* Some internal improvements and dependency updates.
+
 ## [springtime-di] 1.0.0
 
 ### New
