@@ -49,7 +49,11 @@ impl ApplicationRunner for MigrationRunner {
                 .flatten_ok()
                 .try_collect()?;
 
-            info!("Running {} migrations...", migrations.len());
+            info!(
+                "Running {} migrations by {} executors...",
+                migrations.len(),
+                self.executors.len()
+            );
 
             let mut runner = Runner::new(&migrations)
                 .set_target(config.target.into())
