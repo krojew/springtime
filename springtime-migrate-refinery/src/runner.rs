@@ -20,7 +20,7 @@ use tracing::{debug, info};
 #[cfg_attr(test, automock)]
 pub trait MigrationRunnerExecutor {
     /// Runs migrations contained in the given [Runner] by passing a concrete DB client.
-    fn run_migrations<'a>(&self, runner: &'a Runner) -> BoxFuture<'a, Result<(), ErrorPtr>>;
+    fn run_migrations<'a>(&'a self, runner: &'a Runner) -> BoxFuture<'a, Result<(), ErrorPtr>>;
 }
 
 #[derive(Component)]
