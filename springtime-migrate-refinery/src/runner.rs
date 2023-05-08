@@ -4,8 +4,6 @@ use crate::config::MigrationConfigProvider;
 use crate::migration::MigrationSource;
 use crate::refinery::Runner;
 use itertools::Itertools;
-#[cfg(test)]
-use mockall::automock;
 use springtime::future::{BoxFuture, FutureExt};
 use springtime::runner::ApplicationRunner;
 use springtime_di::instance_provider::{ComponentInstancePtr, ErrorPtr};
@@ -17,7 +15,6 @@ use tracing::{debug, info};
 /// client. This trait is such abstraction. By default, all MigrationRunnerExecutors will be called
 /// to run migrations in unspecified order.
 #[injectable]
-#[cfg_attr(test, automock)]
 pub trait MigrationRunnerExecutor {
     /// Runs migrations contained in the given [Runner] by passing a concrete DB client.
     fn run_migrations<'a>(&'a self, runner: &'a Runner) -> BoxFuture<'a, Result<(), ErrorPtr>>;
@@ -81,11 +78,35 @@ impl ApplicationRunner for MigrationRunner {
 mod tests {
     use crate::config::{MigrationConfig, MigrationConfigProvider};
     use crate::migration::MockMigrationSource;
-    use crate::runner::{MigrationRunner, MockMigrationRunnerExecutor};
-    use refinery_core::Migration;
+    use crate::runner::{MigrationRunner, MigrationRunnerExecutor};
+    use mockall::automock;
+    use refinery_core::{Migration, Runner};
     use springtime::future::{BoxFuture, FutureExt};
     use springtime::runner::ApplicationRunner;
     use springtime_di::instance_provider::{ComponentInstancePtr, ErrorPtr};
+
+    #[automock]
+    pub trait TestMigrationRunnerExecutor {
+        fn run_migrations(&self, runner: &Runner) -> BoxFuture<'_, Result<(), ErrorPtr>>;
+    }
+
+    struct MockMigrationRunnerExecutor {
+        inner: MockTestMigrationRunnerExecutor,
+    }
+
+    impl MockMigrationRunnerExecutor {
+        fn new() -> Self {
+            Self {
+                inner: MockTestMigrationRunnerExecutor::new(),
+            }
+        }
+    }
+
+    impl MigrationRunnerExecutor for MockMigrationRunnerExecutor {
+        fn run_migrations<'a>(&'a self, runner: &'a Runner) -> BoxFuture<'a, Result<(), ErrorPtr>> {
+            self.inner.run_migrations(runner)
+        }
+    }
 
     #[derive(Default)]
     struct TestMigrationConfigProvider {
@@ -108,6 +129,7 @@ mod tests {
 
         let mut executor = MockMigrationRunnerExecutor::new();
         executor
+            .inner
             .expect_run_migrations()
             .times(1)
             .returning(|_| async { Ok(()) }.boxed());
