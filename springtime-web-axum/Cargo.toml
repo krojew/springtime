@@ -21,7 +21,7 @@ config = "0.13.3"
 downcast = "0.11.0"
 futures = "0.3.28"
 fxhash = "0.2.1"
-hyper = "0.14.26"
+hyper = "1.0.1"
 serde = "1.0.160"
 springtime = { version = "1.0.0", path = "../springtime" }
 springtime-di = { version = "1.0.0", path = "../springtime-di", features = ["async"] }
