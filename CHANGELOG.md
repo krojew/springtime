@@ -1,3 +1,10 @@
+## [springtime] 1.0.1
+## [springtime-di] 1.0.1
+## [springtime-migrate-refinery] 0.2.1
+## [springtime-web-axum] 2.0.0
+
+* Updated dependencies to latest versions.
+
 ## [springtime-web-axum] 1.0.0
 
 ### Changed
