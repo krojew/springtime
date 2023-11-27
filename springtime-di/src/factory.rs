@@ -46,7 +46,7 @@ impl ComponentFactoryBuilder {
         Ok(Self {
             definition_registry: Box::new(StaticComponentDefinitionRegistry::new(
                 true,
-                &SimpleContextFactory::default(),
+                &SimpleContextFactory,
             )?),
             scope_factories: [
                 (

@@ -1,6 +1,6 @@
 [package]
 name = "springtime-web-axum-derive"
-version = "0.1.0"
+version = "0.1.1"
 edition.workspace = true
 authors.workspace = true
 description = "Derive support for springtime-web-axum crate."
@@ -15,6 +15,6 @@ proc-macro = true
 
 [dependencies]
 itertools = "0.12.0"
-proc-macro2 = "1.0.52"
-quote = "1.0.26"
-syn = { version = "2.0.15", features = ["full"] }
+proc-macro2 = "1.0.70"
+quote = "1.0.33"
+syn = { version = "2.0.39", features = ["full"] }

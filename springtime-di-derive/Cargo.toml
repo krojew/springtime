@@ -1,6 +1,6 @@
 [package]
 name = "springtime-di-derive"
-version = "0.3.0"
+version = "0.3.1"
 edition.workspace = true
 authors.workspace = true
 description = "Derive support for springtime-di crate."
@@ -22,6 +22,6 @@ default = ["threadsafe"]
 [dependencies]
 convert_case = "0.6.0"
 itertools = "0.12.0"
-proc-macro2 = "1.0.52"
-syn = { version = "2.0.2", features = ["full"] }
-quote = "1.0.26"
+proc-macro2 = "1.0.70"
+syn = { version = "2.0.39", features = ["full"] }
+quote = "1.0.33"

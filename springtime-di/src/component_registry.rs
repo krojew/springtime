@@ -325,7 +325,7 @@ impl StaticComponentDefinitionRegistry {
 
         self.register_unconditional_aliases(&alias_definitions, &new_enabled_types)?;
 
-        enabled_types.extend(new_enabled_types.into_iter());
+        enabled_types.extend(new_enabled_types);
 
         for (definition, condition) in alias_definitions
             .iter()
@@ -660,7 +660,7 @@ mod registry {
                 self.definitions.insert(target, vec![definition]);
             }
 
-            self.names.extend(names.into_iter());
+            self.names.extend(names);
             Ok(())
         }
 
