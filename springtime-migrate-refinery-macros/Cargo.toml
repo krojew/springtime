@@ -1,6 +1,6 @@
 [package]
 name = "springtime-migrate-refinery-macros"
-version = "0.1.0"
+version = "0.1.1"
 edition.workspace = true
 authors.workspace = true
 description = "Macros for the springtime-migrate-refinery crate."
