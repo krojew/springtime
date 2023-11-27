@@ -3,18 +3,16 @@
 use crate::config::{ServerConfig, WebConfig, WebConfigProvider};
 use crate::router::RouterBootstrap;
 use futures::future::try_join_all;
-use hyper::server::conn::AddrIncoming;
-use hyper::server::Builder;
-use hyper::Error as HyperError;
 use springtime::future::{BoxFuture, FutureExt};
 use springtime::runner::ApplicationRunner;
 use springtime_di::component_registry::conditional::unregistered_component;
 use springtime_di::instance_provider::{ComponentInstancePtr, ErrorPtr};
 use springtime_di::{component_alias, injectable, Component};
-use std::future::Future;
-use std::net::AddrParseError;
+use std::future::{Future, IntoFuture};
 use std::sync::Arc;
 use thiserror::Error;
+use tokio::net::TcpListener;
+use tokio::select;
 use tokio::sync::watch::{channel, Receiver, Sender};
 use tracing::{debug, info};
 
@@ -23,10 +21,8 @@ pub type ShutdownSignalSender = Sender<()>;
 /// Errors related to bootstrapping servers.
 #[derive(Error, Debug)]
 pub enum ServerBootstrapError {
-    #[error("Error parsing listen address: {0}")]
-    ListenAddressParseError(AddrParseError),
     #[error("Error binding server: {0}")]
-    BindError(#[source] HyperError),
+    BindError(#[source] tokio::io::Error),
     #[error("Error configuring router: {0}")]
     RouterError(#[source] ErrorPtr),
 }
@@ -40,7 +36,7 @@ pub trait ServerBootstrap {
     fn bootstrap_server(
         &self,
         config: &ServerConfig,
-    ) -> BoxFuture<'_, Result<Builder<AddrIncoming>, ServerBootstrapError>>;
+    ) -> BoxFuture<'_, Result<TcpListener, ServerBootstrapError>>;
 }
 
 #[derive(Component)]
@@ -52,16 +48,13 @@ impl ServerBootstrap for DefaultServerBootstrap {
     fn bootstrap_server(
         &self,
         config: &ServerConfig,
-    ) -> BoxFuture<'_, Result<Builder<AddrIncoming>, ServerBootstrapError>> {
+    ) -> BoxFuture<'_, Result<TcpListener, ServerBootstrapError>> {
         let listen_address = config.listen_address.clone();
 
         async move {
-            axum::Server::try_bind(
-                &listen_address
-                    .parse()
-                    .map_err(ServerBootstrapError::ListenAddressParseError)?,
-            )
-            .map_err(ServerBootstrapError::BindError)
+            TcpListener::bind(&listen_address)
+                .await
+                .map_err(ServerBootstrapError::BindError)
         }
         .boxed()
     }
@@ -121,14 +114,17 @@ impl ServerRunner {
         self.server_bootstrap
             .bootstrap_server(config)
             .await
-            .map(move |builder| async move {
-                builder
-                    .serve(router.into_make_service())
-                    .with_graceful_shutdown(async move {
-                        let _ = shutdown_receiver.changed().await;
-                    })
-                    .await
-                    .map_err(|error| Arc::new(error) as ErrorPtr)
+            .map(move |listener| async move {
+                let serve = axum::serve(listener, router.into_make_service()).into_future();
+
+                select! {
+                    result = serve => {
+                        result.map_err(|error| Arc::new(error) as ErrorPtr)
+                    }
+                    _ = shutdown_receiver.changed() => {
+                        Ok(())
+                    }
+                }
             })
     }
 

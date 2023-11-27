@@ -8,6 +8,7 @@ members = [
     "springtime-migrate-refinery",
     "springtime-migrate-refinery-macros",
 ]
+resolver = "2"
 
 [workspace.package]
 authors = ["Kamil Rojewski <kamil.rojewski@gmail.com>"]
