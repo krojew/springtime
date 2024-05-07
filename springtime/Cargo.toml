@@ -1,6 +1,6 @@
 [package]
 name = "springtime"
-version = "1.0.2"
+version = "1.0.3"
 edition.workspace = true
 authors.workspace = true
 description = "Dependency injection based application bootstrapping and execution crate."

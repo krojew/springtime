@@ -1,6 +1,19 @@
+## [springtime] 1.0.3
+
+## [springtime-di] 1.0.2
+
+## [springtime-migrate-refinery] 0.2.2
+
+## [springtime-web-axum] 2.0.1
+
+* Updated dependencies to latest versions.
+
 ## [springtime] 1.0.1
+
 ## [springtime-di] 1.0.1
+
 ## [springtime-migrate-refinery] 0.2.1
+
 ## [springtime-web-axum] 2.0.0
 
 * Updated dependencies to latest versions.
@@ -25,7 +38,7 @@
 
 ## [springtime] 0.3.0
 
-### New 
+### New
 
 * Reading config from optional `springtime.json` file in current directory.
 * Re-exporting `BoxFuture` from `springtime-di`.
@@ -54,8 +67,9 @@
 ### New
 
 * Fallible custom constructors - they should return `Result<Type, ErrorPtr>`,
-where `Type` is the type being returned previously. This also implies new entry
-in `ComponentInstanceProviderError` and loosing some of its derived traits.
+  where `Type` is the type being returned previously. This also implies new
+  entry
+  in `ComponentInstanceProviderError` and loosing some of its derived traits.
 
 ## [springtime-di] 0.2.1
 
