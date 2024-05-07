@@ -66,6 +66,7 @@ mod component_derive_test {
         _all_dependencies: Vec<ComponentInstancePtr<dyn TestTrait3 + Sync + Send>>,
     }
 
+    #[allow(dead_code)]
     #[derive(Component)]
     #[component(names = ["dep2"], condition = "dummy_component_condition")]
     struct TestComponent2(
@@ -193,9 +194,9 @@ mod component_derive_test {
         ) -> Result<(ComponentInstanceAnyPtr, CastFunction), ComponentInstanceProviderError>
         {
             #[cfg(feature = "threadsafe")]
-            let trait_type = TypeId::of::<dyn TestTrait3 + Sync + Send>();
+                let trait_type = TypeId::of::<dyn TestTrait3 + Sync + Send>();
             #[cfg(not(feature = "threadsafe"))]
-            let trait_type = TypeId::of::<dyn TestTrait3>();
+                let trait_type = TypeId::of::<dyn TestTrait3>();
 
             if type_id == TypeId::of::<TestDependency>() {
                 return TestDependency::create(self).map(|p| {
@@ -254,7 +255,7 @@ mod component_derive_test {
                     type_name: None,
                 })
             }
-            .boxed()
+                .boxed()
         }
 
         #[cfg(not(feature = "async"))]
@@ -280,7 +281,7 @@ mod component_derive_test {
                     .await
                     .map(|(p, cast)| vec![(p, cast)])
             }
-            .boxed()
+                .boxed()
         }
 
         #[cfg(not(feature = "async"))]
@@ -316,7 +317,7 @@ mod component_derive_test {
                     Err(ComponentInstanceProviderError::NoNamedInstance(name))
                 }
             }
-            .boxed()
+                .boxed()
         }
     }
 
@@ -391,9 +392,9 @@ mod component_derive_test {
                 .unwrap();
 
         #[cfg(feature = "threadsafe")]
-        let type_id = TypeId::of::<dyn TestTrait1 + Sync + Send>();
+            let type_id = TypeId::of::<dyn TestTrait1 + Sync + Send>();
         #[cfg(not(feature = "threadsafe"))]
-        let type_id = TypeId::of::<dyn TestTrait1>();
+            let type_id = TypeId::of::<dyn TestTrait1>();
 
         assert!(registry.component_by_name("dep2", type_id).is_some());
     }
