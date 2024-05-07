@@ -66,6 +66,7 @@ mod component_derive_test {
         _all_dependencies: Vec<ComponentInstancePtr<dyn TestTrait3 + Sync + Send>>,
     }
 
+    #[allow(dead_code)]
     #[derive(Component)]
     #[component(names = ["dep2"], condition = "dummy_component_condition")]
     struct TestComponent2(

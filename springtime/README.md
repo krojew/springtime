@@ -2,7 +2,6 @@
 
 [![crates.io version](https://img.shields.io/crates/v/springtime.svg)](https://crates.io/crates/springtime)
 ![build status](https://github.com/krojew/springtime/actions/workflows/rust.yml/badge.svg)
-![Maintenance](https://img.shields.io/maintenance/yes/2023)
 
 Application framework based on 
 [springtime-di](https://crates.io/crates/springtime-di) dependency injection.
