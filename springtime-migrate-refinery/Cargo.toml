@@ -16,7 +16,7 @@ default = []
 mysql_async = ["refinery-core/mysql_async"]
 rusqlite-bundled = ["refinery-core/rusqlite-bundled"]
 tiberius = ["refinery-core/tiberius"]
-tiberius-config = ["refinery-core/tiberius-config"]
+tiberius-config = ["refinery-core/tiberius-config", "refinery-core/serde"]
 tokio-postgres = ["refinery-core/tokio-postgres"]
 
 [dependencies]

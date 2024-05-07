@@ -519,7 +519,7 @@ mod registry {
         pub(super) fn primary_component(&self, type_id: TypeId) -> Option<ComponentDefinition> {
             self.definitions.get(&type_id).and_then(|definitions| {
                 (if definitions.len() == 1 {
-                    definitions.get(0)
+                    definitions.first()
                 } else {
                     definitions.iter().find(|definition| definition.is_primary)
                 })
@@ -577,7 +577,7 @@ mod registry {
                 definition.cast = metadata.cast;
 
                 if let Some(scope) = &metadata.scope {
-                    definition.scope = scope.clone();
+                    definition.scope.clone_from(scope);
                 }
             }
 
