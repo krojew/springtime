@@ -23,7 +23,7 @@ derivative = "2.2.0"
 futures = { version = "0.3.29", optional = true }
 fxhash = "0.2.1"
 inventory = "0.3.13"
-itertools = "0.12.0"
+itertools = "0.13.0"
 springtime-di-derive = { path = "../springtime-di-derive", version = "0.3", optional = true, default-features = false }
 thiserror = "1.0.50"
 tracing = "0.1.40"
