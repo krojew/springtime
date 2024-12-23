@@ -20,7 +20,7 @@ tiberius-config = ["refinery-core/tiberius-config", "refinery-core/serde"]
 tokio-postgres = ["refinery-core/tokio-postgres"]
 
 [dependencies]
-config = "0.14.0"
+config = "0.15.4"
 itertools = "0.13.0"
 refinery-core = { version = ">=0.8.9", default-features = false }
 serde = "1.0.193"
