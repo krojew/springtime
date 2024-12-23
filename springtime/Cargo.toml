@@ -17,7 +17,7 @@ default = ["async"]
 threadsafe = ["springtime-di/threadsafe"]
 
 [dependencies]
-config = "0.14.0"
+config = "0.15.4"
 derive_more = { version = "1.0.0", features = ["constructor"] }
 futures = { version = "0.3.29", optional = true }
 serde = "1.0.159"
