@@ -15,7 +15,7 @@ rust-version = "1.58"
 proc-macro = true
 
 [dependencies]
-itertools = "0.13.0"
+itertools = "0.14.0"
 proc-macro2 = "1.0.70"
 refinery-core = "0.8.11"
 syn = { version = "2.0.39", features = ["full"] }
