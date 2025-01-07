@@ -54,7 +54,14 @@ impl RouterBootstrap for ControllerRouterBootstrap {
                 controller
                     .configure_router(inner_router, controller.clone())
                     .and_then(|inner_router| controller.post_configure_router(inner_router))
-                    .map(|inner_router| router.nest(&path, inner_router))
+                    .map(|inner_router| {
+                        if path.is_empty() || path == "/" {
+                            // cannot nest root-level routers
+                            router.merge(inner_router)
+                        } else {
+                            router.nest(&path, inner_router)
+                        }
+                    })
             })
             .and_then(|router| {
                 self.configure_components

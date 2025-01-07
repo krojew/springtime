@@ -11,7 +11,7 @@ of the application are properly decoupled from each other, and are managed by
 the dependency injection system.
 
 While `axum` provides a way to explicitly create web handlers in an imperative
-way, this crate gives the option to create multi-layer applications in a 
+way, this crate gives the option to create multi-layer applications in a
 declarative way, leveraging underlying dependency injection. This enables rapid
 application development and loose coupling between components.
 
@@ -29,11 +29,12 @@ application development and loose coupling between components.
 *Springtime Web Axum* is highly configurable, but the most basic usage example
 is quite simple and consists of declaring controllers, creating an `Application`
 instance and calling `run()`. For **tutorial**, advanced features, and patterns,
-please look at the [examples](https://github.com/krojew/springtime/tree/master/springtime-web-axum/examples),
+please look at
+the [examples](https://github.com/krojew/springtime/tree/master/springtime-web-axum/examples),
 which form a step-by-step guide.
 
-The following example assumes familiarity with 
-[springtime](https://crates.io/crates/springtime) and 
+The following example assumes familiarity with
+[springtime](https://crates.io/crates/springtime) and
 [springtime-di](https://crates.io/crates/springtime-di).
 
 ```rust
@@ -80,7 +81,7 @@ impl ExampleController {
     }
 
     // all axum features are available for controllers
-    #[get("/:user")]
+    #[get("/{user}")]
     async fn hello_user(&self, Path(user): Path<String>) -> String {
         // delegate work to our domain service
         self.service.get_important_message(&user)

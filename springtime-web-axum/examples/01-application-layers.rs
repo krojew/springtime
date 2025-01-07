@@ -31,7 +31,7 @@ struct ExampleController {
 
 #[controller]
 impl ExampleController {
-    #[get("/:user")]
+    #[get("/{user}")]
     async fn hello_user(&self, Path(user): Path<String>) -> String {
         // delegate work to our domain service
         self.service.get_important_message(&user)
