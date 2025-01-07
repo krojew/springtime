@@ -19,7 +19,7 @@ impl ExampleController {
     }
 
     // all axum features are available for controllers
-    #[get("/:user")]
+    #[get("/{user}")]
     async fn hello_user(&self, Path(user): Path<String>) -> String {
         format!("Hello {user}!")
     }

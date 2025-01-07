@@ -17,7 +17,7 @@ struct TestController;
 
 #[controller(path = "/test", server_names = ["default", "test"])]
 impl TestController {
-    #[get("/:user_id")]
+    #[get("/{user_id}")]
     async fn hello_world(&self, Path(user_id): Path<u32>) -> String {
         format!("Hello {user_id}!")
     }

@@ -149,6 +149,6 @@ impl ServerRunner {
 /// instance is taken into account.
 #[injectable]
 pub trait ShutdownSignalSource {
-    /// Takes given signal sender to add custom shutdown signaling logic.
+    /// Takes the given signal sender to add custom shutdown signaling logic.
     fn register_shutdown(&self, shutdown_sender: ShutdownSignalSender) -> Result<(), ErrorPtr>;
 }
