@@ -1,8 +1,7 @@
 ## [springtime-web-axum] 3.0.1
 
 * Using `axum` 0.8.
-*
-    * Updated dependencies to the latest versions.
+* Updated dependencies to the latest versions.
 
 ## [springtime] 1.0.3
 
