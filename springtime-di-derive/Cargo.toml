@@ -20,7 +20,7 @@ threadsafe = []
 default = ["threadsafe"]
 
 [dependencies]
-convert_case = "0.7.1"
+convert_case = "0.8.0"
 itertools = "0.14.0"
 proc-macro2 = "1.0.70"
 syn = { version = "2.0.39", features = ["full"] }
