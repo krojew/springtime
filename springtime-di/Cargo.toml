@@ -19,7 +19,7 @@ derive = ["springtime-di-derive"]
 default = ["threadsafe", "derive"]
 
 [dependencies]
-derivative = "2.2.0"
+derive_more = { version = "2.0.1", features = ["debug"] }
 futures = { version = "0.3.29", optional = true }
 fxhash = "0.2.1"
 inventory = "0.3.13"
