@@ -17,7 +17,7 @@ use crate::instance_provider::{
     CastFunction, ComponentInstanceAnyPtr, ComponentInstanceProvider,
     ComponentInstanceProviderError,
 };
-use derivative::Derivative;
+use derive_more::Debug;
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
 use fxhash::{FxHashMap, FxHashSet};
@@ -60,8 +60,7 @@ pub enum ComponentDefinitionRegistryError {
 }
 
 /// Definition for a [Component] registered in a definition registry.
-#[derive(Derivative, Clone)]
-#[derivative(Debug)]
+#[derive(Clone, Debug)]
 pub struct ComponentDefinition {
     /// Each component has at least one name, which can be used to request a specific instance.
     /// Derive-based components have their name generated from type name by converting it to snake
@@ -84,41 +83,39 @@ pub struct ComponentDefinition {
     pub resolved_type_name: String,
 
     /// Constructor method for type-erased instances.
-    #[derivative(Debug = "ignore")]
+    #[debug(skip)]
     pub constructor: Constructor,
 
     /// Cast function associated for given type. Please see the documentation for [CastFunction] for
     /// details on usage.
-    #[derivative(Debug = "ignore")]
+    #[debug(skip)]
     pub cast: CastFunction,
 }
 
 /// Registration information for a [Component]. Please see [ComponentDefinition] for information
 /// about the meaning of the fields.
-#[derive(Derivative, Clone)]
-#[derivative(Debug)]
+#[derive(Clone, Debug)]
 pub struct ComponentMetadata {
     pub names: FxHashSet<String>,
 
     pub scope: String,
 
-    #[derivative(Debug = "ignore")]
+    #[debug(skip)]
     pub constructor: Constructor,
 
-    #[derivative(Debug = "ignore")]
+    #[debug(skip)]
     pub cast: CastFunction,
 }
 
 /// Registration information for an  alias for a [Component] registered in a definition registry.
 /// Please see [ComponentDefinition] for information about the meaning of the fields.
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
+#[derive(Clone, Debug)]
 pub struct ComponentAliasMetadata {
     pub is_primary: bool,
 
     pub scope: Option<String>,
 
-    #[derivative(Debug = "ignore")]
+    #[debug(skip)]
     pub cast: CastFunction,
 }
 
