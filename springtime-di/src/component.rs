@@ -3,8 +3,8 @@
 //!
 //! ## Registering concrete components
 //!
-//! Any type which wants to be managed by the DI system, needs to implement `Component`. For
-//! convenience, the trait can be automatically derived with all infrastructure if the `derive`
+//! Any type that wants to be managed by the DI system needs to implement `Component`. For
+//! convenience, the trait can be automatically derived with all infrastructures if the `derive`
 //! feature is enabled:
 //!
 //! ```
@@ -28,9 +28,9 @@
 //!     dependency_1: ComponentInstancePtr<TestDependency>,
 //!     // primary dyn Trait dependency - note Send + Sync when using the "threadsafe" feature
 //!     dependency_2: ComponentInstancePtr<dyn TestTrait + Send + Sync>,
-//!     // optional dependency - don't fail, when not present
+//!     // optional dependency - don't fail when not present
 //!     optional_dependency: Option<ComponentInstancePtr<TestDependency>>,
-//!     // all registered dependencies of given type
+//!     // all registered dependencies of a given type
 //!     all_dependencies: Vec<ComponentInstancePtr<dyn TestTrait + Sync + Send>>,
 //!     #[component(default)]
 //!     default: i8,
@@ -48,22 +48,22 @@
 //! ### Supported `#[component]` struct configuration
 //!
 //! * `names = ["name"]` - use given name list as the component names, instead of the auto-generated
-//! one
+//!   one
 //! * `condition = "expr"` - call `expr()` and evaluate if given component should be registered; see
-//! [crate::component_registry::conditional]
+//!   [crate::component_registry::conditional]
 //! * `priority = number` - if a condition is present, use the given numerical priority to establish
-//! the order of registration in relation to other components with a condition (i8; higher is first;
-//! default is 0)
+//!   the order of registration in relation to other components with a condition (i8; higher is first;
+//!   default is 0)
 //! * `constructor = "expr"` - call `expr(dependencies...)` to construct the component, instead of
-//! using standard struct construction; parameters must be in the same order as fields in the struct
-//! while non-injected fields can be ignored with the `#[component(ignore)]` attribute
+//!   using standard struct construction; parameters must be in the same order as fields in the struct
+//!   while non-injected fields can be ignored with the `#[component(ignore)]` attribute
 //! * `constructor_parameters = "params"` - additional injectable parameters for the above
-//! constructor; the "params" string consists of comma separated definitions in format:
-//! `(Type | Type/name | Option<Type> | Option<Type>/name | Vec<Type>)`, which means (in order):
-//! primary instance of `Type`, `name`d instance of `Type`, optional primary instance of `Type`,
-//! optional `name`d instance of `Type`, all instances of `Type`
+//!   constructor; the "params" string consists of comma separated definitions in format:
+//!   `(Type | Type/name | Option<Type> | Option<Type>/name | Vec<Type>)`, which means (in order):
+//!   primary instance of `Type`, `name`d instance of `Type`, optional primary instance of `Type`,
+//!   optional `name`d instance of `Type`, all instances of `Type`
 //! * `scope = "name"` - use the [scope](crate::scope) named `name` or
-//! [SINGLETON](crate::scope::SINGLETON) as default
+//!   [SINGLETON](crate::scope::SINGLETON) as default
 //!
 //! ### Supported `#[component]` field configuration
 //!
@@ -103,15 +103,15 @@
 //! ### Supported `#[component_alias]` arguments
 //!
 //! * `primary` - mark the concrete component, for which we're implementing the trait, as selected
-//! (primary) when requesting a single instance of `ComponentInstancePtr<dyn Trait>` and multiple
-//! components are available
+//!   (primary) when requesting a single instance of `ComponentInstancePtr<dyn Trait>` and multiple
+//!   components are available
 //! * `condition = "expr"` - call `expr()` and evaluate if given component should be registered; see
-//! [crate::component_registry::conditional]
+//!   [crate::component_registry::conditional]
 //! * `priority = number` - if a condition is present, use the given numerical priority to establish
-//! the order of registration in relation to other components with a condition (i8; higher is first;
-//! default is 0)
+//!   the order of registration in relation to other components with a condition (i8; higher
+//!   is first; default is 0)
 //! * `scope = "name"` - use the [scope](crate::scope) named `name` to override the concrete
-//! component scope
+//!   component scope
 
 #[cfg(feature = "async")]
 use crate::future::BoxFuture;
@@ -122,7 +122,7 @@ use crate::instance_provider::{
 
 /// Base trait for components for dependency injection.
 ///
-/// Components might depend on other components, which forms the basis for dependency injection. To
+/// Components might depend on other components, which form the basis for dependency injection. To
 /// make the system work, your component instances must be wrapped in a [ComponentInstancePtr].
 /// Please see the module-level documentation for more information.
 pub trait Component: ComponentDowncast<Self> + Sized {
@@ -136,7 +136,7 @@ pub trait Component: ComponentDowncast<Self> + Sized {
     /// Creates an instance of this component using dependencies from given [ComponentInstanceProvider].
     fn create(
         instance_provider: &mut (dyn ComponentInstanceProvider + Sync + Send),
-    ) -> BoxFuture<Result<Self, ComponentInstanceProviderError>>;
+    ) -> BoxFuture<'_, Result<Self, ComponentInstanceProviderError>>;
 }
 
 /// Helper trait for traits implemented by components, thus allowing injection of components based

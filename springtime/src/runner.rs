@@ -15,7 +15,7 @@ pub type ApplicationRunnerPtr = dyn ApplicationRunner;
 
 /// Runs application logic. Runners are run by the [Application](crate::application::Application)
 /// and are discovered by the dependency injection framework. If the `async` feature is enabled,
-/// runners with the same priority are ran concurrently.
+/// runners with the same priority are run concurrently.
 #[injectable]
 #[cfg_attr(test, automock)]
 pub trait ApplicationRunner {

@@ -19,6 +19,7 @@ macro_rules! impl_handlers {
     }
 }
 
+#[derive(Clone)]
 enum ControllerMethod {
     Configuration(TokenStream),
     Source(TokenStream),
@@ -101,17 +102,7 @@ fn extract_router_configuration(item: &mut ItemImpl) -> Result<RouterConfigurati
                     }
                 });
 
-            if let Some(error) = controller_attrs
-                .iter()
-                .find_map(|attr| {
-                    if let Err(error) = attr {
-                        Some(error)
-                    } else {
-                        None
-                    }
-                })
-                .cloned()
-            {
+            if let Some(error) = controller_attrs.iter().find_map(|attr| attr.clone().err()) {
                 return Err(error);
             }
 
