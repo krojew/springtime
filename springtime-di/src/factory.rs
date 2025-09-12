@@ -16,9 +16,9 @@ use crate::scope::{
 use futures::future::BoxFuture;
 #[cfg(feature = "async")]
 use futures::FutureExt;
-use fxhash::{FxHashMap, FxHashSet};
 #[cfg(not(feature = "async"))]
 use itertools::Itertools;
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::any::TypeId;
 use tracing::debug;
 

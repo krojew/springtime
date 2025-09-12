@@ -11,9 +11,9 @@
 
 use crate::component_registry::ComponentDefinition;
 use crate::instance_provider::ComponentInstanceAnyPtr;
-use fxhash::FxHashMap;
 #[cfg(test)]
 use mockall::automock;
+use rustc_hash::FxHashMap;
 use std::any::TypeId;
 
 #[cfg(not(feature = "threadsafe"))]

@@ -3,9 +3,9 @@
 
 use axum::Router;
 use downcast::{downcast_sync, AnySync};
-use fxhash::FxHashSet;
 #[cfg(test)]
 use mockall::automock;
+use rustc_hash::FxHashSet;
 use springtime_di::injectable;
 use springtime_di::instance_provider::{ComponentInstancePtr, ErrorPtr};
 
