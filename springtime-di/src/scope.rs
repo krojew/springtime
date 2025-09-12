@@ -1,11 +1,11 @@
 //! Component instances are contained in [Scope]s - containers which decide when to reuse or create
 //! an instance. There's a global one for singletons, but there also can be other, specialized ones.
-//! Some can be simple, like [PrototypeScope], while other can be quite complex and depend on
+//! Some can be simple, like [PrototypeScope], while others can be quite complex and depend on
 //! external factors, e.g. tying the lifetime of instances to web sessions.
 //!
 //! Note: scope resolution happens at component instantiation time, which can lead to unexpected
 //! consequences if incompatible scopes are mixed together, e.g. a [singleton](SINGLETON) component
-//! can depend on a [prototype](PROTOTYPE) one. In such case when creating the singleton, a new
+//! can depend on a [prototype](PROTOTYPE) one. In such a case when creating the singleton, a new
 //! instance of the dependency will be created, since it's a prototype, but then that single
 //! instance will live as long as the singleton lives.
 
@@ -33,8 +33,8 @@ pub trait Scope {
     /// Gets an instance requested for the given definition, if available in this scope.
     fn instance(&self, definition: &ComponentDefinition) -> Option<ComponentInstanceAnyPtr>;
 
-    /// Stores given instance in the scope. The scope might not support storing instances and ignore
-    /// it.
+    /// Stores a given instance in the scope. The scope might not support storing instances and
+    /// ignore it.
     fn store_instance(
         &mut self,
         definition: &ComponentDefinition,

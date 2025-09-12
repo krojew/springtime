@@ -6,7 +6,7 @@
 //! DI framework. This, in turn, requires an entrypoint for the application which initializes DI and
 //! runs the actual business logic of the application. This crate provides such entrypoint in the
 //! form of [Application](application::Application), which also configures additional supporting
-//! infrastructure, e.g. logging.
+//! infrastructure, e.g., logging.
 //!
 //! ### Simple usage example
 //!
