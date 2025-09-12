@@ -5,7 +5,7 @@
 //! by values from `springtime.json` file under the `web` key.
 
 use config::{Config, File};
-use fxhash::FxHashMap;
+use rustc_hash::FxHashMap;
 use serde::Deserialize;
 use springtime::config::CONFIG_FILE;
 use springtime::future::{BoxFuture, FutureExt};

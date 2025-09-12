@@ -20,10 +20,10 @@ use crate::instance_provider::{
 use derive_more::Debug;
 #[cfg(feature = "async")]
 use futures::future::BoxFuture;
-use fxhash::{FxHashMap, FxHashSet};
 use itertools::Itertools;
 #[cfg(test)]
 use mockall::automock;
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::any::{type_name, TypeId};
 use thiserror::Error;
 
@@ -483,7 +483,7 @@ mod registry {
     use crate::component_registry::{
         ComponentAliasMetadata, ComponentDefinition, ComponentMetadata,
     };
-    use fxhash::{FxHashMap, FxHashSet};
+    use rustc_hash::{FxHashMap, FxHashSet};
     use std::any::TypeId;
     use tracing::debug;
 

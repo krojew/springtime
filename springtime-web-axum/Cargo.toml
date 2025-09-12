@@ -20,7 +20,7 @@ axum = "0.8.1"
 config = "0.15.5"
 downcast = "0.11.0"
 futures = "0.3.31"
-fxhash = "0.2.1"
+rustc-hash = "2.1.1"
 serde = "1.0.217"
 springtime = { version = "1.0.0", path = "../springtime" }
 springtime-di = { version = "1.0.0", path = "../springtime-di", features = ["async"] }

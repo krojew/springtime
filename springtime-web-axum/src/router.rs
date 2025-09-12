@@ -76,7 +76,7 @@ mod tests {
     use crate::controller::MockController;
     use crate::router::{ControllerRouterBootstrap, MockRouterConfigure, RouterBootstrap};
     use axum::Router;
-    use fxhash::FxHashSet;
+    use rustc_hash::FxHashSet;
     use springtime_di::instance_provider::ComponentInstancePtr;
 
     #[test]
