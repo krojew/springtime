@@ -1,3 +1,9 @@
+## [springtime-di] 1.0.4
+
+## [springtime-web-axum] 3.0.1
+
+* Fixed `RUSTSEC-2025-0057` by aschaeffer.
+
 ## [springtime-di] 1.0.3
 
 * Fixed `RUSTSEC-2024-0388` by aschaeffer.
