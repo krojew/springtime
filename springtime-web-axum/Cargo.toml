@@ -1,6 +1,6 @@
 [package]
 name = "springtime-web-axum"
-version = "3.0.0"
+version = "3.0.1"
 edition.workspace = true
 authors.workspace = true
 description = "Web framework based on Springtime and axum."
