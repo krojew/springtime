@@ -5,6 +5,7 @@
 //! by values from `springtime.json` file under the `migration` key.
 
 use config::{Config, File};
+use refinery_core::SchemaVersion;
 use serde::Deserialize;
 use springtime::config::CONFIG_FILE;
 use springtime::future::{BoxFuture, FutureExt};
@@ -19,11 +20,11 @@ pub enum Target {
     /// Latest version.
     Latest,
     /// User-provided version.
-    Version(u32),
+    Version(SchemaVersion),
     /// Don't run migrations, just update the migration table to latest version.
     Fake,
     /// Don't run migrations, just update the migration table to user-provided version.
-    FakeVersion(u32),
+    FakeVersion(SchemaVersion),
 }
 
 impl From<Target> for refinery_core::Target {

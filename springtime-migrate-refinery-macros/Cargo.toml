@@ -17,6 +17,6 @@ proc-macro = true
 [dependencies]
 itertools = "0.14.0"
 proc-macro2 = "1.0.70"
-refinery-core = "0.8.11"
+refinery-core = "0.9.0"
 syn = { version = "2.0.39", features = ["full"] }
 quote = "1.0.33"
