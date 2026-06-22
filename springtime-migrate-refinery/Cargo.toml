@@ -21,7 +21,7 @@ tokio-postgres = ["refinery-core/tokio-postgres"]
 
 [dependencies]
 config = "0.15.4"
-itertools = "0.14.0"
+itertools = "0.15.0"
 refinery-core = { version = "0.9.0", default-features = false }
 serde = "1.0.193"
 springtime = { version = "1.0.0", path = "../springtime" }
