@@ -87,6 +87,7 @@ fn get_injected_type(ty: &Type) -> TokenStream {
                     if let Some(GenericArgument::Type(Type::TraitObject(TypeTraitObject {
                         dyn_token,
                         bounds,
+                        ..
                     }))) = args.args.first()
                     {
                         // and we're done
@@ -552,7 +553,7 @@ pub fn register_component_alias(
         let trait_type = item_impl
             .trait_
             .as_ref()
-            .map(|(_, path, ..)| path)
+            .map(|(path, _)| path)
             .ok_or_else(|| Error::new(item.span(), "Missing trait identifier!"))?;
 
         let target_type = if let Type::Path(path) = item_impl.self_ty.deref() {
